@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-07 Security Checks</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-07 Security Checks</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-11">2017-08-11</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>下表总结了glibc实现中为了检查并组织堆相关攻击的安全检查.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Function</th>
+      <th>Security Check</th>
+      <th>Error</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>unlink</td>
+      <td>chunk size是否等于next chunk(内存意义上的)的prev_size</td>
+      <td>corrupted size vs. prev_size</td>
+    </tr>
+    <tr>
+      <td>unlink</td>
+      <td>检查是否<code class="highlighter-rouge">P-&gt;fd-&gt;bk == P</code> 以及 <code class="highlighter-rouge">P-&gt;bk-&gt;fd == P \*</code></td>
+      <td>corrupted double-linked list</td>
+    </tr>
+    <tr>
+      <td>_int_malloc</td>
+      <td>当移除fastbin的第一个堆块(以满足malloc要求)时, 检查chunk size是否在fast chunk的大小范围内</td>
+      <td>malloc(): memory corruption (fast)</td>
+    </tr>
+    <tr>
+      <td>_int_malloc</td>
+      <td>当移除smallbin的最后一个堆块(<code class="highlighter-rouge">victim</code>)时(以满足malloc要求), 检查<code class="highlighter-rouge">victim-&gt;bk-&gt;fd</code>是否等于<code class="highlighter-rouge">victim</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>_int_malloc</td>
+      <td>当迭代unsorted bin时, 会检查当前chunk的大小是否在最小值(<code class="highlighter-rouge">2*SIZE_SZ</code>)和最大值(<code class="highlighter-rouge">av-&gt;system_mem</code>)范围内</td>
+      <td>malloc(): memory corruption</td>
+    </tr>
+    <tr>
+      <td>_int_malloc</td>
+      <td>当将last remainder chunk插入到unsorted bin中(在切分一块large chunk之后), 会检查是否<code class="highlighter-rouge">unsorted_chunks(av)-&gt;fd-&gt;bk == unsorted_chunks(av)</code></td>
+      <td>malloc(): corrupted unsorted chunks</td>
+    </tr>
+    <tr>
+      <td>_int_malloc</td>
+      <td>当将last remainder chunk插入到unsorted bin中(在切分一块fast chunk或small chunk之后), 检查是否<code class="highlighter-rouge">unsorted_chunks(av)-&gt;fd-&gt;bk == unsorted_chunks(av)</code></td>
+      <td>malloc(): corrupted unsorted chunks 2</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>检查<code class="highlighter-rouge">p \*\*</code>在内存中是否在<code class="highlighter-rouge">p+chunksize(p)</code>之前(以避免被覆写)</td>
+      <td>free(): invalid pointer</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>检查chunk大小是否至少为<code class="highlighter-rouge">MINISIZE</code>或是<code class="highlighter-rouge">MALLOC_ALIGNMENT</code>的倍数</td>
+      <td>free(): invalid size</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>对于一个大小在fastbin范围内的chunk, 检查next chunk的大小是否在最小值和最大值(<code class="highlighter-rouge">av-&gt;system_mem</code>)之间</td>
+      <td>free(): invalid next size (fast)</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>当插入fast chunk到fastbin(在<code class="highlighter-rouge">首部</code>)时, 检查fastbin中的首部chunk与即将插入的chunk不同</td>
+      <td>double free or corruption (fasttop)</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>当插入fast chunk 到fastbin(首部)时, 检查已经在首部的chunk是否跟即将被插入的chunk相同</td>
+      <td>invalid fastbin entry (free)</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>如果chunk不在fastbin的大小范围内, 也不是通过mmap映射得到的chunk, 检查该chunk是否为top chunk</td>
+      <td>double free or corruption (top)</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>检查next chunk是否在arena范围内</td>
+      <td>double free or corruption (out)</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>检查next chunk的<code class="highlighter-rouge">PREV_INUSE</code>位是否为1</td>
+      <td>double free or corruption (!prev)</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>检查next chunk的大小是否在最小值和最大值之间(<code class="highlighter-rouge">av-&gt;system_mem</code>)</td>
+      <td>free(): invalid next size (normal)</td>
+    </tr>
+    <tr>
+      <td>_int_free</td>
+      <td>当插入合并后的chunk到unsorted bin时, 检查是否<code class="highlighter-rouge">unsorted_chunks(av)-&gt;fd-&gt;bk == unsorted_chunks(av)</code></td>
+      <td>free(): corrupted unsorted chunks</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><em>*: ‘P’ refers to the chunk being unlinked</em></p>
+
+<p><em>**: ‘p’ refers to the chunk being freed</em></p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/11/malloc-state/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/12/double-free/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/11/malloc-state/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/12/double-free/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

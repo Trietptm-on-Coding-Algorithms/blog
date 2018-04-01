@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>安装YouCompleteMe</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>安装YouCompleteMe</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-27">2017-08-27</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#installation" title="installation">installation</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#tool" title="tool">tool</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>首先你需要安装vim的vundle插件, 并要求vim版本高于7.3.584</p>
+</blockquote>
+
+<h2 id="首先需要在vimrc中添加如下代码">首先需要在<code class="highlighter-rouge">.vimrc</code>中添加如下代码</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Plugin <span class="s1">'valloric/youcompleteme'</span>
+</code></pre></div></div>
+<p>然后进入vim, 在Normal模式中输入<code class="highlighter-rouge">:PluginInstall</code>进行下载</p>
+
+<h2 id="检查仓库的完整性">检查仓库的完整性</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> ~/.vim/bundle/youcompleteme
+git submodule update <span class="nt">--init</span> <span class="nt">--recursive</span>
+</code></pre></div></div>
+
+<h2 id="下载安装最新版的-libclang">下载安装最新版的 libclang</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>aptitude install llvm-3.9 clang-3.9 libclang-3.9-dev libboost-all-dev
+</code></pre></div></div>
+
+<h2 id="编译构建ycm_core库">编译构建<code class="highlighter-rouge">ycm_core</code>库</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mkdir ~/.ycm_build
+<span class="nb">cd</span> ~/.ycm_build
+cmake <span class="nt">-G</span> <span class="s2">"Unix Makefiles"</span> <span class="nt">-DUSE_SYSTEM_BOOST</span><span class="o">=</span>ON <span class="nt">-DEXTERNAL_LIBCLANG_PATH</span><span class="o">=</span>/usr/lib/x86_64-linux-gnu/libclang-3.9.so <span class="nb">.</span> ~/.vim/bundle/youcompleteme/third_party/ycmd/cpp
+</code></pre></div></div>
+<p>然后开始编译<code class="highlighter-rouge">ycm_core</code></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cmake <span class="nt">--build</span> <span class="nb">.</span> <span class="nt">--target</span> ycm_core <span class="nt">--config</span> Release
+</code></pre></div></div>
+
+<h2 id="配置">配置</h2>
+
+<p>复制 .ycm_extra_conf.py 文件</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cp ~/.vim/bundle/youcompleteme/third_party/ycmd/examples/.ycm_extra_conf.py ~/.vim/
+</code></pre></div></div>
+<p>然后添加vim配置(修改.vimrc文件)</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># gedit ～/.vimrc</span>
+<span class="nb">let </span>g:ycm_server_python_interpreter<span class="o">=</span><span class="s1">'/usr/bin/python'</span>
+<span class="nb">let </span>g:ycm_global_ycm_extra_conf<span class="o">=</span><span class="s1">'~/.vim/.ycm_extra_conf.py'</span>
+</code></pre></div></div>
+
+<p>然后就安装完成了..不过我这里还有点问题.还需要再分析解决</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/23/c-traps-pitfalls-ch01/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/29/friend-group/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/23/c-traps-pitfalls-ch01/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/29/friend-group/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

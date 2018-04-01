@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>TaintDroid 动态污点分析工具部署</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>TaintDroid 动态污点分析工具部署</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-11-23">2017-11-23</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#installation" title="installation">installation</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#tool" title="tool">tool</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<p>TaintDroid是一款著名的Android动态污点分析工具。我的安装环境是<code class="highlighter-rouge">ubuntu 16.04 x64</code></p>
+
+<h2 id="安装-jdk-6u45">安装 JDK 6u45</h2>
+
+<p>TaintDroid仅支持jdk6及以下的版本，如果有装高版本的jdk的话，需要进行替换</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> ~/Downloads
+proxychains wget http://85-207-0-21.static.bluetone.cz/java/1.6.0_45/jdk-6u45-linux-x64.bin
+<span class="nb">sudo </span>mkdir <span class="nt">-p</span> /usr/local/java  
+<span class="nb">cd</span> /usr/local/java  
+<span class="nb">sudo </span>cp ~/Downloads/jdk-6u45-linux-x64.bin <span class="nb">.</span>
+<span class="nb">sudo </span>chmod +x jdk-6u45-linux-x64.bin
+</code></pre></div></div>
+
+<p>我之前是解压jdk8到/usr/local底下，然后将路径添加到~/.zshrc里，因此我自己还得将这里的添加环境变量的几行代码注释掉。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>vim /etc/profile
+    ...
+    <span class="nv">JAVA_HOME</span><span class="o">=</span>/usr/local/java/jdk1.6.0_45    
+    <span class="nv">PATH</span><span class="o">=</span><span class="nv">$PATH</span>:<span class="nv">$HOME</span>/bin:<span class="nv">$JAVA_HOME</span>/bin    
+    <span class="nb">export </span>JAVA_HOME    
+    <span class="nb">export </span>PATH  
+</code></pre></div></div>
+
+<p>然后配置JDK和JRE的位置</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>update-alternatives <span class="nt">--install</span> /usr/bin/java java /usr/local/java/jdk1.6.0_45/bin/java 1
+<span class="nb">sudo </span>update-alternatives <span class="nt">--install</span> /usr/bin/javac javac /usr/local/java/jdk1.6.0_45/bin/javac 1   
+<span class="nb">sudo </span>update-alternatives <span class="nt">--install</span> /usr/bin/javaws javaws /usr/local/java/jdk1.6.0_45/bin/javaws 1 
+</code></pre></div></div>
+
+<p>配置Oracle为系统默认JDK/JRE：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>update-alternatives <span class="nt">--set</span> java /usr/local/java/jdk1.6.0_45/bin/java    
+<span class="nb">sudo </span>update-alternatives <span class="nt">--set</span> javac /usr/local/java/jdk1.6.0_45/bin/javac    
+<span class="nb">sudo </span>update-alternatives <span class="nt">--set</span> javaws /usr/local/java/jdk1.6.0_45/bin/javaws  
+<span class="nb">source</span> /etc/profile
+</code></pre></div></div>
+
+<p>然后重新打开一个终端，检测java版本</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>java <span class="nt">-version</span> 
+    java version <span class="s2">"1.6.0_45"</span>
+    Java<span class="o">(</span>TM<span class="o">)</span> SE Runtime Environment <span class="o">(</span>build 1.6.0_45-b06<span class="o">)</span>
+    Java HotSpot<span class="o">(</span>TM<span class="o">)</span> 64-Bit Server VM <span class="o">(</span>build 20.45-b01, mixed mode<span class="o">)</span>
+</code></pre></div></div>
+
+<h2 id="安装一些必要的软件包">安装一些必要的软件包</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt-get install git-core gnupg flex bison gperf build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z-dev ccache libgl1-mesa-dev libxml2-utils xsltproc unzip libswitch-perl  
+</code></pre></div></div>
+<h2 id="下载android源码">下载Android源码</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mkdir <span class="nt">-p</span>  ~/Documents/code/Android
+mkdir <span class="nt">-p</span>  ~/Documents/code/Android/repo
+mkdir <span class="nt">-p</span>  ~/Documents/code/Android/aosp
+<span class="nb">cd</span> ~/Documents/code/Android/repo
+curl https://storage-googleapis.proxy.ustclug.org/git-repo-downloads/repo <span class="o">&gt;</span> repo  
+chmod a+x repo  
+<span class="nb">cd</span> ../aosp
+</code></pre></div></div>
+
+<p>下载repo工具及初始化repo</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt-get install phablet-tools  
+proxychains repo init <span class="nt">-u</span> git://mirrors.ustc.edu.cn/aosp/platform/manifest <span class="nt">-b</span> android-4.3_r1  
+repo sync  <span class="c">#同步源码需要很长时间</span>
+</code></pre></div></div>
+
+<h2 id="编译源码">编译源码</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> /aosp/build  
+<span class="nb">sudo </span>bash envsetup.sh
+lunch <span class="c">#模拟器选择aosp_arm-eng</span>
+<span class="nb">sudo </span>make <span class="nt">-j4</span> <span class="c">#-j后的数字根据机器的CPU核数配置，CPU核数的一或两倍   </span>
+emulator <span class="c">#确保编译无问题</span>
+</code></pre></div></div>
+
+<p>这里的<code class="highlighter-rouge">envsetup.sh</code>用于配置环境变量，成功配置好环境变量时才可以使用lunch命令，必须注意的是，这里的<code class="highlighter-rouge">envsetup.sh</code>必须在bash下运行，像我用的是zsh，因此就无法运行这个envsetup.sh，建议之后的命令都在<code class="highlighter-rouge">bash</code>下运行。</p>
+
+<p>从zsh切换到bash也很简单，就是输入<code class="highlighter-rouge">bash</code>命令即可</p>
+
+<p>注意在make的时候，可能会出现Make的版本问题，比如我的是4.1版本就会无法编译，需要使用3.81或3.82版本的make进行编译。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>build/core/main.mk:45: <span class="k">********************************************************************************</span>
+build/core/main.mk:46: <span class="k">*</span>  You are using version 4.1 of make.
+build/core/main.mk:47: <span class="k">*</span>  Android can only be built by versions 3.81 and 3.82.
+build/core/main.mk:48: <span class="k">*</span>  see https://source.android.com/source/download.html
+build/core/main.mk:49: <span class="k">********************************************************************************</span>
+</code></pre></div></div>
+
+<p>解决方法就是make降版本</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cd ~/Downloads
+proxychains wget http://ftp.gnu.org/gnu/make/make-3.81.tar.gz
+tar -xzvf make-3.81.tar.gz 
+cd make-3.81
+./configure 
+sh build.sh
+sudo make install
+make -v 
+    GNU Make 3.81
+    Copyright (C) 2006  Free Software Foundation, Inc.
+    This is free software; see the source for copying conditions.
+    There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+    PARTICULAR PURPOSE.
+
+    This program built for x86_64-unknown-linux-gnu
+</code></pre></div></div>
+
+<p>另外一个问题，在make的过程中提示<code class="highlighter-rouge">/bin/bash: jar: command not found</code>而无法继续编译，那么这其实是因为切换到root身份时并没有重新加载/etc/profile，也就意味着你的环境变量根本没有加载进来，所以找不到jar。</p>
+
+<p>一个可行的做法是在<code class="highlighter-rouge">/usr/bin</code>建立一个软链接。同理后续还有<code class="highlighter-rouge">javadoc</code>，也用一样的方法解决</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> /usr/bin
+<span class="nb">sudo </span>ln <span class="nt">-s</span> <span class="nt">-f</span> /usr/local/java/jdk1.6.0_45/bin/jar
+<span class="nb">sudo </span>ln <span class="nt">-s</span> <span class="nt">-f</span> /usr/local/java/jdk1.6.0_45/bin/javah /bin/javah
+<span class="nb">sudo </span>ln <span class="nt">-s</span> <span class="nt">-f</span> /usr/local/java/jdk1.6.0_45/bin/javadoc /bin/javadoc
+</code></pre></div></div>
+
+<p>然后重新运行<code class="highlighter-rouge">sudo make -j4</code>即可</p>
+
+<h2 id="下载-taintdroid-源码">下载 TaintDroid 源码</h2>
+
+<p>将下列代码复制到<code class="highlighter-rouge">/Android/aosp/.repo/local_manifests/local_manifest.xml</code>，这个<code class="highlighter-rouge">locla_manifests</code>目录以及<code class="highlighter-rouge">local_manifest.xml</code>我在同步源码后是没有的，我本来以为是源码同步的时候出了什么问题没有同步完整，在网上找了相关资料都没有相关问题，所以我就直接创建了这样一个文件夹和xml文件。</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;manifest&gt;</span>  
+  <span class="nt">&lt;remote</span> <span class="na">name=</span><span class="s">"github"</span> <span class="na">fetch=</span><span class="s">"git://github.com"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"platform/dalvik"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"dalvik"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_dalvik"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"platform/libcore"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"libcore"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_libcore"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"platform/frameworks/base"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"frameworks/base"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_frameworks_base"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"platform/frameworks/native"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"frameworks/native"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_frameworks_native"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"platform/frameworks/opt/telephony"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"frameworks/opt/telephony"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_frameworks_opt_telephony"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"platform/system/vold"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"system/vold"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_system_vold"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"platform/system/core"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"system/core"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_system_core"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"device/samsung/manta"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"device/samsung/manta"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/device_samsung_manta"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;remove-project</span> <span class="na">name=</span><span class="s">"device/samsung/tuna"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"device/samsung/tuna"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_device_samsung_tuna"</span> <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+  <span class="nt">&lt;project</span> <span class="na">path=</span><span class="s">"packages/apps/TaintDroidNotify"</span> <span class="na">remote=</span><span class="s">"github"</span> <span class="na">name=</span><span class="s">"TaintDroid/android_platform_packages_apps_TaintDroidNotify"</span>  
+      <span class="na">revision=</span><span class="s">"taintdroid-4.3_r1"</span><span class="nt">/&gt;</span>  
+<span class="nt">&lt;/manifest&gt;</span>  
+</code></pre></div></div>
+
+<p>然后执行以下命令</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>aosp 
+repo sync <span class="nt">--force-sync</span> 
+repo forall dalvik libcore frameworks/base frameworks/native frameworks/opt/telephony system/vold system/core device/samsung/manta device/samsung/tuna <span class="se">\</span>
+       packages/apps/TaintDroidNotify <span class="nt">-c</span> <span class="s1">'git checkout -b taintdroid-4.3_r1 --track github/taintdroid-4.3_r1 &amp;&amp; git pull'</span>
+</code></pre></div></div>
+
+<h2 id="编译-taintdroid">编译 TaintDroid</h2>
+
+<p>在<code class="highlighter-rouge">TaintDroid</code>根目录下，也就是我们的<code class="highlighter-rouge">aosp</code>目录下新建一个<code class="highlighter-rouge">buildspec.mk</code>和<code class="highlighter-rouge">build.mk</code>文件， 然后写入以下代码到<code class="highlighter-rouge">buildspec.mk</code>和<code class="highlighter-rouge">build.mk</code>里(比如我，一开始就只新建了<code class="highlighter-rouge">buildspec.mk</code>，然后编译出错，网上的解答也很少，仅三篇，但无疑就是这个文件的问题，所以后面就再新建了<code class="highlighter-rouge">build.mk</code>，而且<code class="highlighter-rouge">Android</code>和<code class="highlighter-rouge">aosp</code>目录下都有放，所以就能编译成功)</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Enable core taint tracking logic (always add this)    </span>
+WITH_TAINT_TRACKING :<span class="o">=</span> <span class="nb">true</span>      
+<span class="c"># Enable taint tracking for ODEX files (always add this)    </span>
+WITH_TAINT_ODEX :<span class="o">=</span> <span class="nb">true</span>      
+<span class="c"># Enable taint tracking in the "fast" (aka ASM) interpreter (recommended)    </span>
+WITH_TAINT_FAST :<span class="o">=</span> <span class="nb">true</span>      
+<span class="c"># Enable additional output for tracking JNI usage (not recommended)    </span>
+<span class="c">#TAINT_JNI_LOG := true      </span>
+<span class="c"># Enable byte-granularity tracking for IPC parcels    </span>
+WITH_TAINT_BYTE_PARCEL :<span class="o">=</span> <span class="nb">true</span>   
+</code></pre></div></div>
+
+<p>然后打开<code class="highlighter-rouge">Android/aosp/build/target/product/core.mk</code>并把<code class="highlighter-rouge">TaintDroidNotify</code>添加到<code class="highlighter-rouge">PRODUCT_PACKAGES</code>中(注意添加到第一个出现的PRODUCT_PACKAGES中)</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$RODUCT_PACKAGES</span> +<span class="o">=</span> <span class="se">\ </span>   
+                    BasicDreams <span class="se">\ </span>   
+                    ...    
+                    voip-common <span class="se">\ </span>   
+                    TaintDroidNotify   
+</code></pre></div></div>
+
+<p>然后就可以开始编译<code class="highlighter-rouge">TaintDroid</code>了</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">.</span> build/envsetup.sh    
+lunch 1
+make clean    
+<span class="nb">sudo </span>make <span class="nt">-j4</span>  
+</code></pre></div></div>
+
+<p>在执行<code class="highlighter-rouge">sudo make -j4</code>的过程中，编译出了问题，报错提示是</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dalvik/vm/mterp/out/InterpC-portable.cpp:2683:1: error: <span class="s1">'GET_REGISTER_TAINT_FLOAT'</span> was not declared <span class="k">in </span>this scope
+dalvik/vm/mterp/out/InterpC-portable.cpp:2683:1: error: <span class="s1">'SET_REGISTER_TAINT_FLOAT'</span> was not declared <span class="k">in </span>this scope
+dalvik/vm/mterp/out/InterpC-portable.cpp:3177:1: error: <span class="s1">'dvmSetStaticFieldTaintIntVolatile'</span> was not declared <span class="k">in </span>this scope
+dalvik/vm/mterp/out/InterpC-portable.cpp:3197:1: error: <span class="s1">'dvmSetStaticFieldTaintLongVolatile'</span> was not declared <span class="k">in </span>this scope
+dalvik/vm/mterp/out/InterpC-portable.cpp:3480:1: error: <span class="s1">'dvmSetStaticFieldTaintObjectVolatile'</span> was not declared <span class="k">in </span>this scope
+make: <span class="k">***</span> <span class="o">[</span>out/host/linux-x86/obj/SHARED_LIBRARIES/libdvm_intermediates/mterp/out/InterpC-portable.o] Error 1
+</code></pre></div></div>
+
+<p>这个的问题就在于<code class="highlighter-rouge">buildspec.xml</code>，你应该像之前说的那样再创建一个<code class="highlighter-rouge">build.xml</code>文件，然后从<code class="highlighter-rouge">. build/envsetup.sh</code>重新开始执行命令(其实从<code class="highlighter-rouge">make clean</code>开始也行)</p>
+
+<h2 id="taintdroid-应用于-emulator">Taintdroid 应用于 Emulator</h2>
+
+<p>这里的前提条件是我们之前有用<code class="highlighter-rouge">AVD Manager</code>下载了arm的安卓镜像。我之前一直是用的<code class="highlighter-rouge">genymotion</code>所以我这次也要打开<code class="highlighter-rouge">Android Studio</code>下载对应的镜像。因为我们编译的TaintDroid的原因(api要求必须为18)，我选择了<code class="highlighter-rouge">API:18 System image:armeabi-v7a Android:4.3</code>的<code class="highlighter-rouge">Jelly Bean</code>版本image下载安装</p>
+
+<p>下载完成，可以在<code class="highlighter-rouge">Android SDK</code>目录下发现一个<code class="highlighter-rouge">system-images</code>的目录，比如我的目录路径是<code class="highlighter-rouge">/AndroidSDK/system-images/android-18/google_apis/armeabi-v7a</code>。</p>
+
+<p>我们回到<code class="highlighter-rouge">aosp</code>目录下，现在我们需要做的就是将之前<code class="highlighter-rouge">TaintDroid</code>编译生成的<code class="highlighter-rouge">/aosp/out/target/product/generic/system.img</code>替换到<code class="highlighter-rouge">/AndroidSDK/system-images/android-18/google_apis/armeabi-v7a/system.img</code>。这样我们使用<code class="highlighter-rouge">emulator</code>启动AVD后就可以使用<code class="highlighter-rouge">TaintDroid</code>了</p>
+
+<p>当然你也可以不用这么麻烦，我们可以直接使用先前编译出的安卓版本来运行。比如我的就是这样(sdcard.img需要自己生成，百度一下吧)。</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./emulator -system /home/vancir/Documents/code/Android/aosp/out/target/product/generic/system.img  -data /home/vancir/Documents/code/Android/aosp/out/target/product/generic/userdata.img -ramdisk /home/vancir/Documents/code/Android/aosp/out/target/product/generic/ramdisk.img  -sdcard /home/vancir/Documents/code/Android/aosp/out/target/product/generic/sdcard.img -kernel /home/vancir/Documents/code/Android/aosp/prebuilts/qemu-kernel/arm/kernel-qemu-armv7 
+</code></pre></div></div>
+
+<p>至此，整个部署过程就已经完成了。</p>
+
+<ol>
+  <li><a href="https://wenku.baidu.com/view/b58f924f0975f46527d3e1bb.html">TaintDroid：用于在智能手机上实时监控隐私数据的信息流跟踪系统</a></li>
+  <li><a href="http://www.appanalysis.org/">TaintDorid 官网</a></li>
+  <li><a href="https://groups.google.com/forum/#!forum/taintdroid">TaintDorid google group</a></li>
+</ol>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/11/20/upx-dll-unpack/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/11/26/hxb-pwnme/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/11/20/upx-dll-unpack/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/11/26/hxb-pwnme/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

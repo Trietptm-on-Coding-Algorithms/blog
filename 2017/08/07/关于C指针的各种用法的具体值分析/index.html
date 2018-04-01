@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>关于C指针的各种用法的具体值分析</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>关于C指针的各种用法的具体值分析</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-07">2017-08-07</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#c/c++" title="c/c++">c/c++</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#c/c++" title="c/c++">c/c++</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<p>在学习堆漏洞方面的知识时，会遇到各种指针，用于修改内存中的值，一直很混淆，因此在此进行了一个小实验，对C语言中指针的各种用法，具体值如何，做了一个比较详尽的实验。虽然花费了很长时间，但是很好地提高了对指针的理解。</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;stdint.h&gt;
+#define malloc_size 0x80
+</span>
+<span class="kt">uint64_t</span> <span class="o">*</span><span class="n">chunk0_ptr</span><span class="p">;</span>
+<span class="kt">uint64_t</span> <span class="o">*</span><span class="n">chunk1_ptr</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="n">main</span><span class="p">(){</span>
+    <span class="n">chunk0_ptr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="n">malloc_size</span><span class="p">);</span><span class="c1">//chunk a
+</span>    <span class="n">chunk1_ptr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="n">malloc_size</span><span class="p">);</span><span class="c1">//chunk b
+</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"&amp;chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"&amp;chunk1_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">chunk1_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: &amp;p 为 p 在bss段(全局变量在bss段，局部变量在栈上) 的存储地址，且指针长度为4bytes</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk1_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk1_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: p 为 p 所指向的结构体 在堆上 的地址，且成员长度为8bytes</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"Before *chunk0_ptr = 0x50</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"*chunk_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">*</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"*chunk_ptr = %x</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">*</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="o">*</span><span class="n">chunk0_ptr</span> <span class="o">=</span> <span class="mh">0x50</span><span class="p">;</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"After *chunk0_ptr = 0x50</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"*chunk_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">*</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"*chunk_ptr = %x</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">*</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: *p 用%%p 和 %%x输出均为所指向内容的值</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr + 1 =%p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"sizeof(uint64_t) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr + sizeof(uint64_t) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="o">+</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"&amp;chunk0_ptr + sizeof(uint64_t) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: p+1 根据p这个指针的字节长度算，比如p指针长度8bytes，那么p+1就会根据p指向的堆地址+8</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+    <span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x10</span><span class="p">;</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr[1] = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"&amp;chunk0_ptr[1] = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"*(chunk0_ptr+1) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: chunk0_ptr[1]指向堆结构的成员的值，且p[1] = *(p+1)</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"&amp;chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(uint64_t)&amp;chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"&amp;chunk0_ptr-sizeof(uint64_t) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="o">-</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">)));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(uint64_t) &amp;chunk0_ptr-(sizeof(uint64_t)) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="o">-</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">))</span> <span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(uint64_t)( &amp;chunk0_ptr-(sizeof(uint64_t)) )= %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">)(</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="o">-</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">))</span> <span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: 指针前加(uint64_t)会变为整数，进行整数运算，否则会根据指针自身长度进行加减</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr[0] = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr[1] = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(void*)chunk0_ptr[1] = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(void*)chunk0_ptr[1] + sizeof(uint64_t)= %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: chunk0_ptr[1]实际上是整数，*pvoid+8结果是其增大了8</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(void*)chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(void*)chunk0_ptr + 1 = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(char*)chunk0_ptr + 1 = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(void*)(chunk0_ptr + 1)= %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)(</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(char*)(chunk0_ptr + 1)= %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)(</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"sizeof(void*) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"sizeof(char*) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: GNU标准认定void*和char*一样，*pvoid++的结果是其增大了1</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(uint64_t*)chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(uint64_t*)chunk0_ptr + 1= %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"(uint64_t*)(chunk0_ptr + 1)= %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)(</span><span class="n">chunk0_ptr</span><span class="o">+</span><span class="mi">1</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"sizeof(uint64_t*) = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">));</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: 这里依旧是符合之前实验的结果，不再做分析</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"++chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">++</span><span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr + 1 = %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"结论: ++p 和 p+=1 均是加上指针的size</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>示例输出：我这里的编译命令是<code class="highlighter-rouge">gcc point.c -o point -m32</code></p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&amp;chunk0_ptr = 0x804b030
+&amp;chunk1_ptr = 0x804b02c
+结论: &amp;p 为 p 在bss段(全局变量在bss段，局部变量在栈上) 的存储地址，且指针长度为4bytes
+chunk0_ptr = 0x8b40008
+chunk1_ptr = 0x8b40090
+结论: p 为 p 所指向的结构体 在堆上 的地址，且成员长度为8bytes
+Before *chunk0_ptr = 0x50
+*chunk_ptr = (nil)
+*chunk_ptr = 0
+After *chunk0_ptr = 0x50
+*chunk_ptr = 0x50
+*chunk_ptr = 50
+结论: *p 用%p 和 %x输出均为所指向内容的值
+chunk0_ptr = 0x8b40008
+chunk0_ptr + 1 =0x8b40010
+sizeof(uint64_t) = 0x8
+chunk0_ptr + sizeof(uint64_t) = 0x8b40048
+&amp;chunk0_ptr + sizeof(uint64_t) = 0x804b050
+结论: p+1 根据p这个指针的字节长度算，比如p指针长度8bytes，那么p+1就会根据p指向的堆地址+8
+chunk0_ptr[1] = 0x10
+&amp;chunk0_ptr[1] = 0x8b40010
+*(chunk0_ptr+1) = 0x10
+结论: chunk0_ptr[1]指向堆结构的成员的值，且p[1] = *(p+1)
+&amp;chunk0_ptr = 0x804b030
+(uint64_t)&amp;chunk0_ptr = 0x804b030
+&amp;chunk0_ptr-sizeof(uint64_t) = 0x804b010
+(uint64_t) &amp;chunk0_ptr-(sizeof(uint64_t)) = 0x804b028
+(uint64_t)( &amp;chunk0_ptr-(sizeof(uint64_t)) )= 0x804b010
+结论: 指针前加(uint64_t)会变为整数，进行整数运算，否则会根据指针自身长度进行加减
+chunk0_ptr = 0x8b40008
+chunk0_ptr[0] = 0x50
+chunk0_ptr[1] = 0x10
+(void*)chunk0_ptr[1] = 0x10
+(void*)chunk0_ptr[1] + sizeof(uint64_t)= 0x18
+结论: chunk0_ptr[1]实际上是整数，*pvoid+8结果是其增大了8
+(void*)chunk0_ptr = 0x8b40008
+(void*)chunk0_ptr + 1 = 0x8b40009
+(char*)chunk0_ptr + 1 = 0x8b40009
+(void*)(chunk0_ptr + 1)= 0x8b40010
+(char*)(chunk0_ptr + 1)= 0x8b40010
+sizeof(void*) = 0x4
+sizeof(char*) = 0x4
+结论: GNU标准认定void*和char*一样，*pvoid++的结果是其增大了1
+(uint64_t*)chunk0_ptr = 0x8b40008
+(uint64_t*)chunk0_ptr + 1= 0x8b40010
+(uint64_t*)(chunk0_ptr + 1)= 0x8b40010
+sizeof(uint64_t*) = 0x4
+结论: 这里依旧是符合之前实验的结果，不再做分析
+chunk0_ptr = 0x8b40008
+++chunk0_ptr = 0x8b40010
+chunk0_ptr = 0x8b40010
+chunk0_ptr + 1 = 0x8b40018
+结论: ++p 和 p+=1 均是加上指针的size
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/07/owncloud/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/09/Bins-and-Chunks/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/07/owncloud/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/09/Bins-and-Chunks/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

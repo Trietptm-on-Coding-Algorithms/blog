@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>2017 HCTF 逆向level1 解题wp</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>2017 HCTF 逆向level1 解题wp</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-11-15">2017-11-15</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#writeups" title="writeups">writeups</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<p>程序检测了OD，IDA的进程名，也有用IsDebuggerPresent和ntdll!NtQueryInformationProcess来检查调试器
+大部分的分析工作都是用IDA静态分析，因为很久没做逆向了，因此光是分析就花了很长时间，写脚本也花了不少时间。因此感觉一般。</p>
+
+<p>题目下载链接: <a href="http://od7mpc53s.bkt.clouddn.com/Evr_Q_a1bad588324e19cda44e20fd8cb291b5a735470ef4736f7969aa30fe4ec10ac3.zip">Evr_Q_a1bad588324e19cda44e20fd8cb291b5a735470ef4736f7969aa30fe4ec10ac3.zip</a></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">string</span>
+
+
+<span class="n">enc_flag</span> <span class="o">=</span> <span class="p">[</span><span class="mh">0x1E</span><span class="p">,</span> <span class="mh">0x15</span><span class="p">,</span> <span class="mh">0x2</span><span class="p">,</span> <span class="mh">0x10</span><span class="p">,</span> <span class="mh">0x0D</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">,</span> <span class="mh">0x6F</span><span class="p">,</span> <span class="mh">0xDD</span><span class="p">,</span> <span class="mh">0xDD</span><span class="p">,</span> <span class="mh">0x48</span><span class="p">,</span> <span class="mh">0x64</span><span class="p">,</span> <span class="mh">0x63</span><span class="p">,</span> <span class="mh">0xD7</span><span class="p">,</span> <span class="mh">0x2E</span><span class="p">,</span> <span class="mh">0x2C</span><span class="p">,</span> <span class="mh">0xFE</span><span class="p">,</span> <span class="mh">0x6A</span><span class="p">,</span> <span class="mh">0x6D</span><span class="p">,</span> <span class="mh">0x2A</span><span class="p">,</span> <span class="mh">0xF2</span><span class="p">,</span> <span class="mh">0x6F</span><span class="p">,</span> <span class="mh">0x9A</span><span class="p">,</span> <span class="mh">0x4D</span><span class="p">,</span> <span class="mh">0x8B</span><span class="p">,</span> <span class="mh">0x4B</span><span class="p">,</span> <span class="mh">0xCF</span><span class="p">,</span> <span class="mh">0xBF</span><span class="p">,</span> <span class="mh">0x4F</span><span class="p">,</span> <span class="mh">0x47</span><span class="p">,</span> <span class="mh">0x4E</span><span class="p">,</span> <span class="mh">0x13</span><span class="p">,</span> <span class="mh">0x10</span><span class="p">,</span> <span class="mh">0x43</span><span class="p">,</span> <span class="mh">0x0B</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">enc1</span><span class="p">(</span><span class="n">word</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="n">word</span> <span class="o">=</span> <span class="nb">ord</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="o">^</span> <span class="mh">0x76</span> <span class="o">^</span> <span class="mh">0xAD</span>
+        <span class="n">temp1</span> <span class="o">=</span> <span class="p">(</span><span class="n">word</span> <span class="o">&amp;</span> <span class="mh">0xAA</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span>
+        <span class="n">temp2</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">word</span> <span class="o">&amp;</span> <span class="mh">0xAA</span>
+        <span class="n">word</span> <span class="o">=</span> <span class="n">temp1</span> <span class="o">|</span> <span class="n">temp2</span>
+        <span class="k">return</span> <span class="n">word</span>
+
+<span class="k">def</span> <span class="nf">enc2</span><span class="p">(</span><span class="n">word</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>        
+        <span class="n">word</span> <span class="o">=</span> <span class="nb">ord</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="o">^</span> <span class="mh">0x76</span> <span class="o">^</span> <span class="mh">0xBE</span>
+        <span class="n">temp1</span> <span class="o">=</span> <span class="p">(</span><span class="n">word</span> <span class="o">&amp;</span> <span class="mh">0xCC</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">2</span>
+        <span class="n">temp2</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">word</span> <span class="o">&amp;</span> <span class="mh">0xCC</span>
+        <span class="n">word</span> <span class="o">=</span> <span class="n">temp1</span> <span class="o">|</span> <span class="n">temp2</span>
+        <span class="k">return</span> <span class="n">word</span>
+
+
+<span class="k">def</span> <span class="nf">enc3</span><span class="p">(</span><span class="n">word</span><span class="p">,</span><span class="n">i</span><span class="p">):</span>
+        <span class="n">word</span> <span class="o">=</span> <span class="nb">ord</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="o">^</span> <span class="mh">0x76</span> <span class="o">^</span> <span class="mh">0xEF</span>
+        <span class="n">temp1</span> <span class="o">=</span> <span class="p">(</span><span class="n">word</span> <span class="o">&amp;</span> <span class="mh">0xF0</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">4</span>
+        <span class="n">temp2</span> <span class="o">=</span> <span class="mi">16</span> <span class="o">*</span> <span class="n">word</span> <span class="o">&amp;</span> <span class="mh">0xF0</span>
+        <span class="n">word</span> <span class="o">=</span> <span class="n">temp1</span> <span class="o">|</span> <span class="n">temp2</span>
+        <span class="k">return</span> <span class="n">word</span> 
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">7</span><span class="p">):</span>
+    <span class="k">print</span> <span class="nb">chr</span><span class="p">(</span><span class="n">enc_flag</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">^</span> <span class="mh">0x76</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">7</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">word1</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">printable</span><span class="p">:</span>
+        <span class="n">res1</span> <span class="o">=</span> <span class="n">enc1</span><span class="p">(</span><span class="n">word1</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span><span class="p">(</span><span class="n">res1</span> <span class="o">==</span> <span class="n">enc_flag</span><span class="p">[</span><span class="mi">7</span><span class="o">+</span><span class="n">i</span><span class="p">]):</span>
+            <span class="k">print</span> <span class="nb">chr</span><span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="n">word1</span><span class="p">))</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">7</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">word1</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">printable</span><span class="p">:</span>
+        <span class="n">res1</span> <span class="o">=</span> <span class="n">enc2</span><span class="p">(</span><span class="n">word1</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span><span class="p">(</span><span class="n">res1</span> <span class="o">==</span> <span class="n">enc_flag</span><span class="p">[</span><span class="mi">14</span><span class="o">+</span><span class="n">i</span><span class="p">]):</span>
+            <span class="k">print</span> <span class="nb">chr</span><span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="n">word1</span><span class="p">))</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">7</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">word1</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">printable</span><span class="p">:</span>
+        <span class="n">res1</span> <span class="o">=</span> <span class="n">enc3</span><span class="p">(</span><span class="n">word1</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span><span class="p">(</span><span class="n">res1</span> <span class="o">==</span> <span class="n">enc_flag</span><span class="p">[</span><span class="mi">21</span><span class="o">+</span><span class="n">i</span><span class="p">]):</span>
+            <span class="k">print</span> <span class="nb">chr</span><span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="n">word1</span><span class="p">))</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">7</span><span class="p">):</span>
+    <span class="k">print</span> <span class="nb">chr</span><span class="p">(</span><span class="n">enc_flag</span><span class="p">[</span><span class="mi">28</span><span class="o">+</span><span class="n">i</span><span class="p">]</span> <span class="o">^</span> <span class="mh">0x76</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>整个flag长度是35，算法每7个为1组进行加密，因为是7个，而且单个字符是可以直接跟加密后的flag比较的，因此可以直接穷举生成随机的字符串组合，将字符串组合扔去加密函数后再和enc_flag相应位置进行比较就可以了。</p>
+
+<p>忘记提一句，在一开始的用户名部分也有一段简单的加密，就不做分析了。</p>
+
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/10/23/a-exercise-about-base64-with-custom-character-set/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/11/15/swpu-cm50/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/10/23/a-exercise-about-base64-with-custom-character-set/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/11/15/swpu-cm50/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

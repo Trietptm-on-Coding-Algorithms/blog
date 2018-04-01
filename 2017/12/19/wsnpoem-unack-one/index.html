@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>zbot变种木马wsnpoem脱壳笔记 part 1</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>zbot变种木马wsnpoem脱壳笔记 part 1</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-12-19">2017-12-19</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#crack" title="crack">crack</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#unpack" title="unpack">unpack</a>&nbsp;
+  
+  <a href="/tags/#malware" title="malware">malware</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文已发表在看雪论坛, 详情可见: <a href="https://bbs.pediy.com/thread-223393.htm">https://bbs.pediy.com/thread-223393.htm</a></p>
+</blockquote>
+
+<p>wsnpoem恶意程序是zbot木马家族的变种，经过加壳保护，我们接下来就来脱壳。</p>
+
+<p>文中分析的程序你可以点击此处下载: <a href="http://od7mpc53s.bkt.clouddn.com/wsnpoem%E6%81%B6%E6%84%8F%E6%A0%B7%E6%9C%ACpar1.zip">wsnpoem恶意样本par1.zip</a>, 解压密码: www.pediy.com</p>
+
+<p>OD载入<code class="highlighter-rouge">wsnpoem-with-rootkit.exe</code></p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_qbbr1m7nonwqzv1.jpg" alt="1.png" /></p>
+
+<p>这是wsnpoem解密的第一阶段，我们直接在<code class="highlighter-rouge">00409D41</code>的LEAVE处右键设下硬件执行断点，然后运行</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_p04n73dz7ctkg1b.jpg" alt="2.png" /></p>
+
+<p>然后我们选择菜单Debug-&gt;Hardware Breakpoint移除刚才设下的断点，向下翻到<code class="highlighter-rouge">00409EDA</code>处</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_41o8mbtetorowfl.jpg" alt="3.png" /></p>
+
+<p>我们在这行设下软件断点(F2)然后运行，停在断点处，我们取消掉这行的断点，按下Enter进入到跳转的分支去，向下翻到<code class="highlighter-rouge">00412449</code>处</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_bhls9fg1tpzgp22.jpg" alt="4.png" /></p>
+
+<p>在翻过了第2层解密后，<code class="highlighter-rouge">00412449</code>处所指向的<code class="highlighter-rouge">004051B7</code>便是我们的OEP，同样设下一个软件断点(F2)，然后运行，停在断点处，我们取消掉这行的断点，然后步入OEP</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_gtg6fhxlz88dbb4.jpg" alt="5.png" /></p>
+
+<p>然后向下一点，看到<code class="highlighter-rouge">0040523A</code>处，在数据窗口中转向0040FD34</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_0ibdn05vvld4ps1.jpg" alt="6.png" /></p>
+
+<p>可以看见，这里的这个call所调用的函数地址处是全零，这会造成程序的崩溃，因此我们可以推测在call以上的代码中有填充这个空间</p>
+
+<p>我们现在边步过，边观察数据窗口中的<code class="highlighter-rouge">0040FD34</code>，看什么时候向该处填充了数据，可以很容易发现，在步过<code class="highlighter-rouge">004051D2</code>处的Call <code class="highlighter-rouge">0040AAD4</code>后，数据窗口中填充了许多的数据</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_jts16y5tgegemhb.jpg" alt="7.png" /></p>
+
+<p>那这样看来，<code class="highlighter-rouge">004051D2</code>处的<code class="highlighter-rouge">Call 0040AAD4</code>就是将所有的函数都导入到内存空间中，而我们的<code class="highlighter-rouge">0040FD34</code>则是导入表的一部分，因此我们可以右键重新将EIP设到OEP处。</p>
+
+<p>向上翻看导入表空间，貌似可能的函数地址块，也就是我们的导入表头，是从<code class="highlighter-rouge">0040FB3C</code>开始</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_bf1yd3nx4kx1rmy.jpg" alt="8.png" /></p>
+
+<p>我们也可以在ascii块中右键选择Long-&gt;Address，这样数据窗口会以地址格式进行显示，方便我们查看导入表</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_2qcxbblavdak0c1.jpg" alt="9.png" /></p>
+
+<p>同样，我们向下翻看，查找导入表的结尾是在0040FEB8</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_0coxb1a2x934ntg.jpg" alt="10.png" /></p>
+
+<p>这样，找到了OEP，也有导入表信息，那么我们就可以用Ollydump+ImportREC来进行脱壳，如下，点击dump保存为dump.exe</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_wkfsszb8fbtprvk.jpg" alt="11.png" /></p>
+
+<p>打开ImportREC，选择正在运行的<code class="highlighter-rouge">wsnpoem-with-rootkit.exe</code>，然后在OEP、RVA和SIZE处填写好我们获得的信息，然后点击Get Imports</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_h21scg5a8id4d36.jpg" alt="12.png" /></p>
+
+<p>但显然，我们的导入表函数虽然有找到，但都是无效的。所以我们需要手动修复导入表函数，因为可能在导入表内混有一些垃圾地址，所以我们需要手动进行移除，比如第一个chunk中</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_kbo2am16hx86q0i.jpg" alt="13.png" /></p>
+
+<p>点击对应的shell32.dll右键显示反汇编，可以看到如下代码，显然不是一个正常的函数的代码，因此可以确定是垃圾地址。我们右键cut chunks</p>
+
+<p>然后有的块显示反汇编提示read error，那么其实也是垃圾地址。依照类似的方法将所有的垃圾地址清除干净后，你就可以转储到文件，然后用IDA打开，你会发现壳已经脱干净并且导入函数也很清晰</p>
+
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/12/17/yoda-unpack/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/12/20/wsnopem-unpack-two/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/12/17/yoda-unpack/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/12/20/wsnopem-unpack-two/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

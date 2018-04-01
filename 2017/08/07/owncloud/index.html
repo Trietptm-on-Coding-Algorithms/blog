@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>部署owncloud的经历</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>部署owncloud的经历</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-07">2017-08-07</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#installation" title="installation">installation</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#tool" title="tool">tool</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="什么是owncloud">什么是owncloud？</h2>
+
+<p>owncloud是一款用来创建属于自己的私有云服务的工具，支持<code class="highlighter-rouge">文件预览</code>、<code class="highlighter-rouge">本地同步</code>、<code class="highlighter-rouge">链接分享</code>以及<code class="highlighter-rouge">版本控制</code>的功能，而且有着丰富的客户端（<code class="highlighter-rouge">Mac</code>、<code class="highlighter-rouge">Linux</code>、<code class="highlighter-rouge">Windows</code>、<code class="highlighter-rouge">Android</code>、<code class="highlighter-rouge">Web</code>）方便使用，因此是个人搭建私有云的快捷工具。不过安全性欠佳，文件是直接存储在服务器上，没有经过加密，只要获得了服务器的管理权限便可以获取文件。</p>
+
+<p>官方网站：http://owncloud.org/</p>
+
+<h2 id="如何安装owncloud">如何安装owncloud？</h2>
+
+<p>整个安装步骤相对来说还是很轻松的，我们只需要搭建好<code class="highlighter-rouge">LAMP(Linux + Apache + MySQL/MariaDB/Percona + PHP)</code>环境即可运行<code class="highlighter-rouge">owncloud</code>，我这里选取的服务器镜像为<code class="highlighter-rouge">ubuntu 14.04 64位</code></p>
+
+<h2 id="lamp环境配置">LAMP环境配置</h2>
+
+<p>LAMP环境配置，可以参考：<a href="https://github.com/teddysun/lamp">LAMP一键安装脚本</a>。我们可以在登入服务器后直接运行如下命令安装<code class="highlighter-rouge">LAMP环境</code></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">sudo </span>apt-get <span class="nt">-y</span> install wget screen unzip
+<span class="nv">$ </span>wget <span class="nt">--no-check-certificate</span> <span class="nt">-O</span> lamp.zip https://github.com/teddysun/lamp/archive/master.zip
+<span class="nv">$ </span>unzip lamp.zip
+<span class="nv">$ </span><span class="nb">cd </span>lamp-master
+<span class="nv">$ </span>chmod +x <span class="k">*</span>.sh
+<span class="nv">$ </span>screen <span class="nt">-S</span> lamp
+<span class="nv">$ </span><span class="nb">sudo</span> ./lamp.sh
+</code></pre></div></div>
+
+<p>安装的时候默认会安装各软件的最新版本，如果嫌麻烦的话，可以直接一直回车按下去。安装的时间会比较长，静心等待安装完成即可</p>
+
+<h2 id="安装owncloud">安装owncloud</h2>
+
+<p>我们需要从 <a href="https://owncloud.org/install/#edition">官网</a> 下载owncloud的源码包，截止<code class="highlighter-rouge">2017-08-07</code>，最新版本是<code class="highlighter-rouge">10.0.2</code>，我们需要将源码包放置到网站根目录下。在安装好<code class="highlighter-rouge">LAMP</code>环境后，默认网站根目录路径是<code class="highlighter-rouge">/data/www/default/</code></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">cd</span> /data/www/default/
+<span class="nv">$ </span>wget https://download.owncloud.org/community/owncloud-10.0.2.tar.bz2
+<span class="nv">$ </span><span class="nb">tar</span> <span class="nt">-jxf</span> owncloud-5.0.5.tar.bz2
+<span class="nv">$ </span><span class="nb">cd </span>owncloud
+<span class="nv">$ </span>chown <span class="nt">-R</span> apache:apache /data/www/default/owncloud/
+</code></pre></div></div>
+
+<p>这样，当我们打开浏览器，访问<code class="highlighter-rouge">http://ip/owncloud</code>，这里的<code class="highlighter-rouge">ip</code>是指你的服务器的<code class="highlighter-rouge">公网IP</code>，就会进入owncloud的安装设置界面</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/owncloud-install.png" alt="owncloud_install" /></p>
+
+<p>在这里我们可以创建一个<code class="highlighter-rouge">owncloud</code>的管理账号以及密码，其次展开<code class="highlighter-rouge">高级选项</code>，会设置<code class="highlighter-rouge">data</code>路径，也就是我们在<code class="highlighter-rouge">owncloud</code>上存储的文件所在的路径，换言之就是你的网盘文件路径，默认是<code class="highlighter-rouge">/data/www/default/owncloud/data</code></p>
+
+<p>再而是数据库的配置了。因为我们是用的<code class="highlighter-rouge">LAMP一键安装脚本</code>，因此我们安装的<code class="highlighter-rouge">phpMyAdmin</code>以及<code class="highlighter-rouge">MySQL</code>的默认账号密码都是<code class="highlighter-rouge">root</code>。因为我们的数据保存在数据库中，因此我们需要登录<code class="highlighter-rouge">phpMyAdmin</code>并创建一个数据库。</p>
+
+<p>用账号密码<code class="highlighter-rouge">root:root</code>登录<code class="highlighter-rouge">phpMyAdmin</code>后，在左栏点击<code class="highlighter-rouge">New</code>创建数据库，数据库名字可以随意，但是为方便起见我命名为<code class="highlighter-rouge">owncloud</code>,字符序<code class="highlighter-rouge">collation</code>选择<code class="highlighter-rouge">utf8_general_ci</code></p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/owncloud-database.png" alt="database" /></p>
+
+<p>那么返回到<code class="highlighter-rouge">http://ip/owncloud</code>的安装界面处，这里的高级选项，其中<code class="highlighter-rouge">user</code>和<code class="highlighter-rouge">password</code>都是默认的<code class="highlighter-rouge">root:root</code>，而<code class="highlighter-rouge">database name</code>则是我们新建的数据库名<code class="highlighter-rouge">owncloud</code>，<code class="highlighter-rouge">localhost</code>不变，点击<code class="highlighter-rouge">Finish setup</code>即可</p>
+
+<p>那么我们整个的安装就已经完成了。接下来我们只需要安装<code class="highlighter-rouge">owncloud</code>的客户端进行访问即可。关于客户端的安装，可以点击：<a href="https://owncloud.org/install/#install-clients">Install Desktop Client</a></p>
+
+<h2 id="可能遇到的问题">可能遇到的问题</h2>
+
+<ul>
+  <li>
+    <p>PHP is apparently set up to strip inline doc blocks. This will make several core apps inaccessible.</p>
+
+    <p>解决方法如下：</p>
+    <blockquote>
+      <p>禁用掉 OPcache 即可。将 /usr/local/php/php.d/opcache.ini 文件移动到别的目录下，再重启 Apache 即可。需要用时，恢复此配置文件，重启 Apache</p>
+      <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">sudo </span>mv /usr/local/php/php.d/opcache.ini /home/ubuntu/
+<span class="nv">$ </span><span class="nb">sudo</span> /etc/init.d/httpd restart
+</code></pre></div>      </div>
+    </blockquote>
+  </li>
+  <li>
+    <p>启用ssh登录，需要管理多个私钥(如github私钥以及服务器访问私钥)</p>
+
+    <p>解决方法如下：</p>
+    <blockquote>
+      <p>在.ssh目录下建立config文件，并按照如下格式写入内容(以github为例)</p>
+      <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Host github.com
+IdentityFile ~/.ssh/github
+User git
+</code></pre></div>      </div>
+      <p>Host可配置为ip，IdentityFile为私钥路径，User为用户名</p>
+    </blockquote>
+  </li>
+</ul>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/07/osmocombb+c118%E8%BF%9B%E8%A1%8CGSM%E7%9F%AD%E4%BF%A1%E5%97%85%E6%8E%A2%E5%AE%9E%E9%AA%8C/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/07/%E5%85%B3%E4%BA%8EC%E6%8C%87%E9%92%88%E7%9A%84%E5%90%84%E7%A7%8D%E7%94%A8%E6%B3%95%E7%9A%84%E5%85%B7%E4%BD%93%E5%80%BC%E5%88%86%E6%9E%90/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/07/osmocombb+c118%E8%BF%9B%E8%A1%8CGSM%E7%9F%AD%E4%BF%A1%E5%97%85%E6%8E%A2%E5%AE%9E%E9%AA%8C/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/07/%E5%85%B3%E4%BA%8EC%E6%8C%87%E9%92%88%E7%9A%84%E5%90%84%E7%A7%8D%E7%94%A8%E6%B3%95%E7%9A%84%E5%85%B7%E4%BD%93%E5%80%BC%E5%88%86%E6%9E%90/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

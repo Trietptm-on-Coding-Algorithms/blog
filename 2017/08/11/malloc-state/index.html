@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-03 malloc state</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-03 malloc state</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-11">2017-08-11</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>这个结构体表示了一个arena的头部信息. 主线程arena是一个全局变量并且不属于堆段的一部分. 其他线程的arena头(<code class="highlighter-rouge">malloc_state</code>结构体)则存储在堆段. 非主arena可以有多个与之相关的堆(这里的堆是指内部的结构体而非堆段)</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">malloc_state</span>
+<span class="p">{</span>
+  <span class="cm">/* Serialize access.  */</span>
+  <span class="n">__libc_lock_define</span> <span class="p">(,</span> <span class="n">mutex</span><span class="p">);</span>
+  <span class="cm">/* Flags (formerly in max_fast).  */</span>
+  <span class="kt">int</span> <span class="n">flags</span><span class="p">;</span>
+
+  <span class="cm">/* Fastbins */</span>
+  <span class="n">mfastbinptr</span> <span class="n">fastbinsY</span><span class="p">[</span><span class="n">NFASTBINS</span><span class="p">];</span>
+  <span class="cm">/* Base of the topmost chunk -- not otherwise kept in a bin */</span>
+  <span class="n">mchunkptr</span> <span class="n">top</span><span class="p">;</span>
+  <span class="cm">/* The remainder from the most recent split of a small request */</span>
+  <span class="n">mchunkptr</span> <span class="n">last_remainder</span><span class="p">;</span>
+  <span class="cm">/* Normal bins packed as described above */</span>
+  <span class="n">mchunkptr</span> <span class="n">bins</span><span class="p">[</span><span class="n">NBINS</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">2</span><span class="p">];</span>
+
+  <span class="cm">/* Bitmap of bins */</span>
+  <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">binmap</span><span class="p">[</span><span class="n">BINMAPSIZE</span><span class="p">];</span>
+
+  <span class="cm">/* Linked list */</span>
+  <span class="k">struct</span> <span class="n">malloc_state</span> <span class="o">*</span><span class="n">next</span><span class="p">;</span>
+  <span class="cm">/* Linked list for free arenas.  Access to this field is serialized
+     by free_list_lock in arena.c.  */</span>
+  <span class="k">struct</span> <span class="n">malloc_state</span> <span class="o">*</span><span class="n">next_free</span><span class="p">;</span>
+  <span class="cm">/* Number of threads attached to this arena.  0 if the arena is on
+     the free list.  Access to this field is serialized by
+     free_list_lock in arena.c.  */</span>
+
+  <span class="n">INTERNAL_SIZE_T</span> <span class="n">attached_threads</span><span class="p">;</span>
+  <span class="cm">/* Memory allocated from the system in this arena.  */</span>
+  <span class="n">INTERNAL_SIZE_T</span> <span class="n">system_mem</span><span class="p">;</span>
+  <span class="n">INTERNAL_SIZE_T</span> <span class="n">max_system_mem</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">malloc_state</span> <span class="o">*</span><span class="n">mstate</span><span class="p">;</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/11/first-fit/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/11/security-checks/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/11/first-fit/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/11/security-checks/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

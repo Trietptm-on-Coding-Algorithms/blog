@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>\!EP(EXE Pack)v1.2 脱壳笔记</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>\!EP(EXE Pack)v1.2 脱壳笔记</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-11-16">2017-11-16</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#crack" title="crack">crack</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#unpack" title="unpack">unpack</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<p>典型的<code class="highlighter-rouge">ESP定律脱壳+ImportREC修复导入表</code>，PEiD的查壳结果是<code class="highlighter-rouge">AHpack 0.1 -&gt; FEUERRADER</code></p>
+
+<h2 id="esp定律脱壳">ESP定律脱壳</h2>
+
+<p>OD载入程序，第一行汇编指令就是<code class="highlighter-rouge">popad</code>，因此采用<code class="highlighter-rouge">ESP定律</code>脱壳。</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/%21ep_exe_pack-popad.png" alt="popad.png" /></p>
+
+<p>我们F8运行<code class="highlighter-rouge">popad</code>这条指令，然后对ESP寄存器右键选择<code class="highlighter-rouge">HW break[ESP]</code>设下断点然后运行</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/%21ep_exe_pack-esp.png" alt="esp.png" /></p>
+
+<p>然后运行程序</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/%21ep_exe_pack-run.png" alt="run.png" /></p>
+
+<p>我们继续向下运行，执行到<code class="highlighter-rouge">RETN</code>返回，我们可以发现我们就到达了OEP(0x000271B0)</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/%21ep_exe_pack-oep.png" alt="oep.png" /></p>
+
+<p>然后选中这些OD没能正确识别的汇编码，然后右键选择[分析]-&gt;[从模块中删除分析]。就可以看到OEP正确代码</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/%21ep_exe_pack-real_oep.png" alt="real_oep.png" /></p>
+
+<p>我们再继续右键，选择[用OllyDump脱壳调试进程]，然后选择确定，保存为dump文件后，我们可以运行，发现程序无法正常运行，因此我们需要修复dump文件。这里要使用<code class="highlighter-rouge">ImportREC</code>来修复函数的导入表</p>
+
+<p>打开<code class="highlighter-rouge">ImportREC</code>，我们首先在最上方选择“活动进程”为我们正在用OD调试的这个程序，然后在右侧的OEP中填入我们找到的OEP: 0x271B0(注意0x00400000是程序的载入基址，不是OEP)</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/%21ep_exe_pack-importrec.png" alt="importrec.png" /></p>
+
+<p>选择“自动查找IAT”完成后继续选择获取输入表，我们就能看到ImportREC找到了IAT中各导入函数的地址。</p>
+
+<p>最后，我们选择“转储到文件”，然后选择我们之前用OllyDump导出的dump文件，确定后，ImportREC就会生成一个修复好的文件dump_.exe</p>
+
+<p>我们运行dump_.exe就可以发现程序已经正常运行了。脱壳也就完整结束</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/11/15/swpu-cm50/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/11/20/upx-dll-unpack/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/11/15/swpu-cm50/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/11/20/upx-dll-unpack/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

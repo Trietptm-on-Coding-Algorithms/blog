@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Tensorflow与TFlearn安装与使用</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Tensorflow与TFlearn安装与使用</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-02">2017-08-02</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#installation" title="installation">installation</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#tool" title="tool">tool</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="tensorflow">Tensorflow</h2>
+
+<p>这里的安装环境是Ubuntu 14.04 64bits，需要安装python，pip，numpy以及tensorflow。这里需要更新pip版本，否则会出现UnicodeDecodeError的错误信息而无法正确安装。</p>
+
+<p>这里安装的tensorflow是仅支持CPU的版本。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#安装python以及pip</span>
+<span class="nb">sudo </span>aptitude install python-dev python-pip
+<span class="c">#需要更新pip，否则会出现UnicodeDecodeError的错误信息而无法正确安装</span>
+<span class="nb">sudo </span>pip install <span class="nt">--upgrade</span> pip
+<span class="c">#安装numpy以及CPU支持的tensorflow</span>
+<span class="nb">sudo </span>pip install numpy
+<span class="nb">sudo </span>pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.5.0-cp27-none-linux_x86_64.whl
+</code></pre></div></div>
+
+<p>这里我们打开python终端运行Tensorflow，尝试运行以下代码测试安装成功</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="n">tf</span>
+<span class="n">hello</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="s">'Hello, TensorFlow!'</span><span class="p">)</span>
+<span class="n">sess</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<span class="k">print</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">hello</span><span class="p">)</span> <span class="c">#Hello, TensorFlow!</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="mi">32</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">a</span><span class="o">+</span><span class="n">b</span><span class="p">)</span> <span class="c">#42</span>
+</code></pre></div></div>
+
+<h2 id="tflearn">TFlearn</h2>
+
+<p>在尝试安装TFlearn时遇到了不少问题，不光是在ubuntu14.04 64bits，而且在帮同学在win8，win10下安装（win下还需要安装如curses，scipy这些模块）也会遇到一些蜜汁bug，不过也还好，能在issues和stackoverflow上得到不少解答，也不枉自己的一番辛苦。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#推荐安装bleeding edge version</span>
+pip install git+https://github.com/tflearn/tflearn.git
+</code></pre></div></div>
+
+<p>官方推荐安装bleeding edge version不是没有道理的，如果安装最新版本，会出现一些蜜汁bug。不过也许还好，因为我在解决了一个urllib3模块的问题后直接装的bleeding edge version，并没有尝试最新版本。</p>
+
+<p>在使用pip时，urllib3模块会提示InsecurePlatformWarning和SNIMissingWarning，大致原因就是urllib3无法正常访问https站点。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/usr/local/lib/python2.7/dist-packages/pip/_vendor/requests/packages/urllib3/util/ssl_.py:318: SNIMissingWarning: An HTTPS request has been made, but the SNI <span class="o">(</span>Subject Name Indication<span class="o">)</span> extension to TLS is not available on this platform. This may cause the server to present an incorrect TLS certificate, which can cause validation failures. You can upgrade to a newer version of Python to solve this. For more information, see https://urllib3.readthedocs.io/en/latest/security.html#snimissingwarning.
+  SNIMissingWarning
+/usr/local/lib/python2.7/dist-packages/pip/_vendor/requests/packages/urllib3/util/ssl_.py:122: InsecurePlatformWarning: A <span class="nb">true </span>SSLContext object is not available. This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail. You can upgrade to a newer version of Python to solve this. For more information, see https://urllib3.readthedocs.io/en/latest/security.html#insecureplatformwarning.
+  InsecurePlatformWarning
+</code></pre></div></div>
+
+<p>google以及github的issues上搜索得到的解答无非就是以下几种解决方案</p>
+
+<ul>
+  <li>更新python版本到2.7.9以上</li>
+  <li>pip安装requests[security]或者pyOpenSSL ndg-httpsclient pyasn1（都是安装的同一些东西）
+因为更新ubuntu预装的python版本，有可能导致一些系统软件的错误，我使用了方法2，但是问题依旧没有解决。</li>
+</ul>
+
+<p>万幸的是，在stackoverflow上终于找到了解答，详见MoreReading的链接3。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>aptitude install python-dev libffi-dev libssl-dev packages
+</code></pre></div></div>
+<p>当然，stackoverflow上的解答还提供了第4种解决方案，就是关闭urllib3的相关警告。当然我之前曾有尝试，但是记得是提示说模块错误，所以也是蜜汁bug，如果你在安装了python-dev libffi-dev libssl-dev packages之后问题仍不能解决，那就只好尝试第4种方法了。不过如果还是不行的话，那也就是无力回天了（来自我长达3小时解决此问题的经验）。</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">requests.packages.urllib3</span>
+<span class="n">requests</span><span class="o">.</span><span class="n">packages</span><span class="o">.</span><span class="n">urllib3</span><span class="o">.</span><span class="n">disable_warnings</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>解决urllib3的bug，安装tflearn成功后，可以尝试运行tflearn的一个入门案例，是关于泰坦尼克号存活率的小程序，详见More Reading的链接4</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="nn">tflearn</span>
+
+<span class="c"># Download the Titanic dataset</span>
+<span class="kn">from</span> <span class="nn">tflearn.datasets</span> <span class="kn">import</span> <span class="n">titanic</span>
+<span class="n">titanic</span><span class="o">.</span><span class="n">download_dataset</span><span class="p">(</span><span class="s">'titanic_dataset.csv'</span><span class="p">)</span>
+
+<span class="c"># Load CSV file, indicate that the first column represents labels</span>
+<span class="kn">from</span> <span class="nn">tflearn.data_utils</span> <span class="kn">import</span> <span class="n">load_csv</span>
+<span class="n">data</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">load_csv</span><span class="p">(</span><span class="s">'titanic_dataset.csv'</span><span class="p">,</span> <span class="n">target_column</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                        <span class="n">categorical_labels</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">n_classes</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+
+<span class="c"># Preprocessing function</span>
+<span class="k">def</span> <span class="nf">preprocess</span><span class="p">(</span><span class="n">passengers</span><span class="p">,</span> <span class="n">columns_to_delete</span><span class="p">):</span>
+    <span class="c"># Sort by descending id and delete columns</span>
+    <span class="k">for</span> <span class="n">column_to_delete</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">columns_to_delete</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="p">[</span><span class="n">passenger</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">column_to_delete</span><span class="p">)</span> <span class="k">for</span> <span class="n">passenger</span> <span class="ow">in</span> <span class="n">passengers</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">passengers</span><span class="p">)):</span>
+        <span class="c"># Converting 'sex' field to float (id is 1 after removing labels column)</span>
+        <span class="n">passengers</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.</span> <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s">'female'</span> <span class="k">else</span> <span class="mf">0.</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">passengers</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="c"># Ignore 'name' and 'ticket' columns (id 1 &amp; 6 of data array)</span>
+<span class="n">to_ignore</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span>
+
+<span class="c"># Preprocess data</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">preprocess</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">to_ignore</span><span class="p">)</span>
+
+<span class="c"># Build neural network</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">tflearn</span><span class="o">.</span><span class="n">input_data</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">tflearn</span><span class="o">.</span><span class="n">fully_connected</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">tflearn</span><span class="o">.</span><span class="n">fully_connected</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">tflearn</span><span class="o">.</span><span class="n">fully_connected</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s">'softmax'</span><span class="p">)</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">tflearn</span><span class="o">.</span><span class="n">regression</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>
+
+<span class="c"># Define model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">tflearn</span><span class="o">.</span><span class="n">DNN</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>
+<span class="c"># Start training (apply gradient descent algorithm)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">n_epoch</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">show_metric</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c"># Let's create some data for DiCaprio and Winslet</span>
+<span class="n">dicaprio</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="s">'Jack Dawson'</span><span class="p">,</span> <span class="s">'male'</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">'N/A'</span><span class="p">,</span> <span class="mf">5.0000</span><span class="p">]</span>
+<span class="n">winslet</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s">'Rose DeWitt Bukater'</span><span class="p">,</span> <span class="s">'female'</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s">'N/A'</span><span class="p">,</span> <span class="mf">100.0000</span><span class="p">]</span>
+<span class="c"># Preprocess data</span>
+<span class="n">dicaprio</span><span class="p">,</span> <span class="n">winslet</span> <span class="o">=</span> <span class="n">preprocess</span><span class="p">([</span><span class="n">dicaprio</span><span class="p">,</span> <span class="n">winslet</span><span class="p">],</span> <span class="n">to_ignore</span><span class="p">)</span>
+<span class="c"># Predict surviving chances (class 1 results)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">([</span><span class="n">dicaprio</span><span class="p">,</span> <span class="n">winslet</span><span class="p">])</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"DiCaprio Surviving Rate:"</span><span class="p">,</span> <span class="n">pred</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"Winslet Surviving Rate:"</span><span class="p">,</span> <span class="n">pred</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>如果运行成功，会输出存活率</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">DiCaprio</span> <span class="n">Surviving</span> <span class="n">Rate</span><span class="p">:</span> <span class="mf">0.113464005291</span>
+<span class="n">Winslet</span> <span class="n">Surviving</span> <span class="n">Rate</span><span class="p">:</span> <span class="mf">0.617543399334</span>
+</code></pre></div></div>
+
+<h2 id="more-reading">More Reading</h2>
+<ul>
+  <li><a href="http://www.tensorfly.cn/">Tensorflow 中文社区</a></li>
+  <li><a href="https://github.com/tflearn/tflearn">Github - TFlearn</a></li>
+  <li><a href="http://stackoverflow.com/questions/29099404/ssl-insecureplatform-error-when-using-requests-package">SSL InsecurePlatform error when using Requests package</a></li>
+  <li><a href="https://github.com/lxzheng/machine_learning/wiki/TFlearn_Quickstart_CN">TFlearn_Quickstart_CN</a></li>
+</ul>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/01/Github-Pages-Jekyll/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/02/tmux/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/01/Github-Pages-Jekyll/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/02/tmux/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

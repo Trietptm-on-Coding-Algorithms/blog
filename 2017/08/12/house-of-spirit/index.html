@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-13 House of Spirit</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-13 House of Spirit</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-12">2017-08-12</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>House of Spirit 跟其他攻击略有不同, 在某种意义上来说, 它涉及到攻击者在指针释放之前去覆写已有指针. 攻击者可以在内存(堆,栈等处)的任意地方创造一个’伪堆块’并覆写一个指针去指向该伪堆块, 堆块必须通过这种方式进行构造才能通过所有的安全测试. 这其实并不难而且也只涉及到设置<code class="highlighter-rouge">size</code>和next chunk的<code class="highlighter-rouge">size</code>. 当伪堆块被释放, 它就会被插入到合适的bin链中(最好是fastbin). 在之后的malloc申请大小跟伪堆块大小一致时便能返回攻击者的伪堆块. 最终结果类似于早先描述的’forging chunks attack’</p>
+
+<p>考虑以下示例代码(下载完整版本: <a href="https://heap-exploitation.dhavalkapil.com/assets/files/house_of_spirit.c">这里</a>):</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">fast_chunk</span> <span class="p">{</span>
+  <span class="kt">size_t</span> <span class="n">prev_size</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">fast_chunk</span> <span class="o">*</span><span class="n">fd</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">fast_chunk</span> <span class="o">*</span><span class="n">bk</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mh">0x20</span><span class="p">];</span>                   <span class="c1">// chunk falls in fastbin size range
+</span><span class="p">};</span>
+
+<span class="k">struct</span> <span class="n">fast_chunk</span> <span class="n">fake_chunks</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>   <span class="c1">// Two chunks in consecutive memory
+// fake_chunks[0] at 0x7ffe220c5ca0
+// fake_chunks[1] at 0x7ffe220c5ce0
+</span>
+<span class="kt">void</span> <span class="o">*</span><span class="n">ptr</span><span class="p">,</span> <span class="o">*</span><span class="n">victim</span><span class="p">;</span>
+
+<span class="n">ptr</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x30</span><span class="p">);</span>                 <span class="c1">// First malloc
+</span>
+<span class="c1">// Passes size check of "free(): invalid size"
+</span><span class="n">fake_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">size</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">fast_chunk</span><span class="p">);</span>  <span class="c1">// 0x40
+</span>
+<span class="c1">// Passes "free(): invalid next size (fast)"
+</span><span class="n">fake_chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">size</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">fast_chunk</span><span class="p">);</span>  <span class="c1">// 0x40
+</span>
+<span class="c1">// Attacker overwrites a pointer that is about to be 'freed'
+</span><span class="n">ptr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">fake_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">fd</span><span class="p">;</span>
+
+<span class="c1">// fake_chunks[0] gets inserted into fastbin
+</span><span class="n">free</span><span class="p">(</span><span class="n">ptr</span><span class="p">);</span>
+
+<span class="n">victim</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x30</span><span class="p">);</span>              <span class="c1">// 0x7ffe220c5cb0 address returned from malloc
+</span></code></pre></div></div>
+
+<p>注意, 跟预期一样, 返回的指针在<code class="highlighter-rouge">fake_chunks[0]</code>之前0x10即16字节处. 这是存储<code class="highlighter-rouge">fd</code>指针的地址. 这次攻击提供了更多可能的攻击. <code class="highlighter-rouge">victim</code>指向栈上的内存而非堆段. 通过修改栈上的返回地址, 攻击者可以控制程序的执行.</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/12/house-of-lore/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/12/shrinking-free-chunks/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/12/house-of-lore/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/12/shrinking-free-chunks/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

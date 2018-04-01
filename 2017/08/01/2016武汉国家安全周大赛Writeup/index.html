@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>2016武汉国家安全周大赛Writeup</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>2016武汉国家安全周大赛Writeup</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-01">2017-08-01</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#writeups" title="writeups">writeups</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="逆向体验">逆向体验</h2>
+
+<p>这次的逆向题都是老套路,并没有很亮的保护技术.所以也就有机会让我这个菜鸡也能去分析清楚.所以也就有了以下的writeup.这里贴出此处逆向题的题目:<a href="http://pan.baidu.com/s/1kU6CaFl">传送门</a></p>
+
+<h2 id="re200">Re200</h2>
+
+<p>程序没有加壳,也没有任何反跟踪技术.就是赤裸裸的代码逆向.这里贴出main函数</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">int</span> <span class="kr">__cdecl</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">envp</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span> <span class="n">argc</span> <span class="o">!=</span> <span class="mi">2</span> <span class="o">||</span> <span class="n">strlen</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mh">0x18</span> <span class="p">)</span>
+  <span class="p">{</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">else</span>
+  <span class="p">{</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dword_404410</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">strlen</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]));</span>
+    <span class="n">v3</span> <span class="o">=</span> <span class="n">sub_401000</span><span class="p">();</span>
+    <span class="n">Handles</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">v13</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">v14</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">v15</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">v16</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">v17</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">InitializeCriticalSection</span><span class="p">(</span><span class="o">&amp;</span><span class="n">CriticalSection</span><span class="p">);</span>
+    <span class="n">v4</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span> <span class="mi">1</span> <span class="p">)</span>
+    <span class="p">{</span>
+      <span class="n">v5</span> <span class="o">=</span> <span class="n">CreateThread</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">StartAddress</span><span class="p">,</span> <span class="p">(</span><span class="n">LPVOID</span><span class="p">)</span><span class="n">v4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ThreadId</span><span class="p">);</span>
+      <span class="o">*</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Handles</span> <span class="o">+</span> <span class="n">v4</span><span class="p">)</span> <span class="o">=</span> <span class="n">v5</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span> <span class="o">!</span><span class="n">v5</span> <span class="p">)</span>
+        <span class="k">break</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span> <span class="o">++</span><span class="n">v4</span> <span class="o">&gt;=</span> <span class="mi">6</span> <span class="p">)</span>
+      <span class="p">{</span>
+        <span class="n">WaitForMultipleObjects</span><span class="p">(</span><span class="mi">6u</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">Handles</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mh">0xFFFFFFFF</span><span class="p">);</span>
+        <span class="n">v6</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">v7</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="k">do</span>
+        <span class="p">{</span>
+          <span class="n">v8</span> <span class="o">=</span> <span class="n">v7</span> <span class="o">^</span> <span class="n">dword_404428</span><span class="p">[</span><span class="n">v7</span><span class="p">];</span>
+          <span class="o">++</span><span class="n">v7</span><span class="p">;</span>
+          <span class="n">v6</span> <span class="o">^=</span> <span class="n">v8</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="k">while</span> <span class="p">(</span> <span class="n">v7</span> <span class="o">&lt;</span> <span class="mi">24</span> <span class="p">);</span>
+        <span class="n">qmemcpy</span><span class="p">(</span><span class="n">v19</span><span class="p">,</span> <span class="n">byte_403160</span><span class="p">,</span> <span class="mh">0x18u</span><span class="p">);</span>
+        <span class="n">v9</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">v19</span><span class="p">[</span><span class="mi">24</span><span class="p">]</span> <span class="o">=</span> <span class="n">byte_403160</span><span class="p">[</span><span class="mi">24</span><span class="p">];</span>
+        <span class="n">v20</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">v21</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">v22</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="k">do</span>
+        <span class="p">{</span>
+          <span class="n">v10</span> <span class="o">=</span> <span class="n">v19</span><span class="p">[</span><span class="n">v9</span><span class="p">]</span> <span class="o">^</span> <span class="n">dword_404428</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="n">v9</span> <span class="o">+=</span> <span class="mi">6</span><span class="p">;</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v17</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">v10</span><span class="p">;</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v17</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404423</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404424</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kr">__int8</span><span class="p">)(</span><span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404425</span><span class="p">[</span><span class="n">v9</span><span class="p">]);</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404426</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404427</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+        <span class="p">}</span>
+        <span class="k">while</span> <span class="p">(</span> <span class="n">v9</span> <span class="o">&lt;</span> <span class="mi">24</span> <span class="p">);</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"The hint: %sn"</span><span class="p">,</span> <span class="n">v19</span><span class="p">);</span>
+        <span class="k">break</span><span class="p">;</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>可以看出.在第一个分支这里有一个简单的判断.这实在太简单不过了.就是一个参数的限制.但是在和其他选手交流的时候还是会发现有不少人会不知道这个地方,以为是程序的反调试.但其实只是不够细致而且逆向的经验太少所致.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span> <span class="n">argc</span> <span class="o">!=</span> <span class="mi">2</span> <span class="o">||</span> <span class="n">strlen</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mh">0x18</span> <span class="p">)</span>
+</code></pre></div></div>
+
+<p>这里的约束条件也很简单.就是要求传入1个参数.并要求传入参数的长度不大于0x18.(事实上,这里的正确参数的长度是0x18.我们在做这些题的时候可以从这些判断条件里得到一些有意思的信息).</p>
+
+<p>之后memcpy对缓冲区进行初始化.在V3这里有一个函数.我们点进去看就可以知道是一个生成随机数的函数.(这里需要一定的逆向经验能识别出这个是一个生成随机数的函数,事实上这里的这个函数也非常好识别.)当我们遇到随机数时,不必慌张.因为一个真正保护好的随机数是不可能逆出来的.而如果必须要逆的话,那只能说这个随机数是存在漏洞的.事实上我们可以查看这个随机数生成函数.可以发现函数生成的随机数赋值给了v3.而v3的数据类型是char.所以我们这里就可以放心了.我们可以使用爆破的方法,穷举256种可能得到正确结果.</p>
+
+<p>其后是一个while(1)循环.循环终止条件是进入到if ( ++v4 &gt;= 6 )分支里然后跳出循环.这里就有一个关键的地方</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">v5</span> <span class="o">=</span> <span class="n">CreateThread</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">StartAddress</span><span class="p">,</span> <span class="p">(</span><span class="n">LPVOID</span><span class="p">)</span><span class="n">v4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ThreadId</span><span class="p">);</span>
+</code></pre></div></div>
+<p>通过分析可以知道这里会通过循环而创建6个线程.每个线程内部会从CreateThread的参数StartAddress所指定的地方开始执行.这里我们需要进入StartAdress里去分析一下.(这里的分析过程可能不是很明显.)当看到那三个熟悉的函数和熟悉的参数的时候, 就可以很能确认是一个MD5生成的函数.而在一开头有一段处理. 就是只取了输入参数的4位数进行MD5生成.这时我们使用OD进行动态调.就可以很直观的知道.这个函数是将输入分为了6段,每段4位数,4位数参与生成MD5值,也就是整个循环下来生成了6段MD5值.这里尤其有一段需要特别注意.在生成MD5之后,会进行一个比较.将生成的MD5与已有的MD5值进行比较.这就很能体现出问题了.由于是4位数生成的MD5.所以我们使用MD5Crack就可以轻松破解得到整个的程序参数输入应该是</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="mi">1</span><span class="n">y8u</span> <span class="mi">93</span><span class="n">B9</span> <span class="mi">0</span><span class="n">Mkh</span> <span class="mi">56</span><span class="n">bv</span> <span class="n">F7um</span> <span class="mi">5</span><span class="n">o9z</span>
+</code></pre></div></div>
+<p>接下来就简单多了.由于这里线程结束的时间各个不确定.所以我们在后面的分析中会发现.上面我们解出的MD5是依旧需要分6组,然后我们需要爆破人工进行全排列参与下面的运算.</p>
+
+<p>这里主要是2个运算</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">do</span>
+   <span class="p">{</span>
+      <span class="n">v8</span> <span class="o">=</span> <span class="n">v7</span> <span class="o">^</span> <span class="n">dword_404428</span><span class="p">[</span><span class="n">v7</span><span class="p">];</span>
+      <span class="o">++</span><span class="n">v7</span>
+      <span class="n">v6</span> <span class="o">^=</span> <span class="n">v8</span><span class="p">;</span>
+   <span class="p">}</span>
+</code></pre></div></div>
+
+<p>这里是生成v6参与下面的异或运算.这里也很好实现.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">do</span>
+        <span class="p">{</span>
+          <span class="n">v10</span> <span class="o">=</span> <span class="n">v19</span><span class="p">[</span><span class="n">v9</span><span class="p">]</span> <span class="o">^</span> <span class="n">dword_404428</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="n">v9</span> <span class="o">+=</span> <span class="mi">6</span><span class="p">;</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v17</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">v10</span><span class="p">;</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v17</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404423</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404424</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kr">__int8</span><span class="p">)(</span><span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404425</span><span class="p">[</span><span class="n">v9</span><span class="p">]);</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404426</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ThreadId</span> <span class="o">+</span> <span class="n">v9</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span> <span class="o">^=</span> <span class="n">v6</span> <span class="o">^</span> <span class="n">v3</span> <span class="o">^</span> <span class="n">byte_404427</span><span class="p">[</span><span class="n">v9</span><span class="p">];</span>
+        <span class="p">}</span>
+</code></pre></div></div>
+
+<p>这里就是会进行一个比较大的异或运算了.这里也可以很轻松用代码复现出来.这里关键是要实现v6的全排列和v3的爆破.</p>
+
+<p>之后与最后的密文进行比较.得到hint.hint的意思是flag是输入的md5值.这道题就这么分析完毕了.</p>
+
+<h2 id="tryagain">Tryagain</h2>
+
+<p>这道题是我做的第一个Linux的逆向.而且也是第一个x64的逆向程序.一开始的时候会因为各种胆怯所以没什么太多的思路.到晚上的时候一搞发现一切都是如此简单明白.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">v5</span> <span class="o">=</span> <span class="o">*</span><span class="n">MK_FP</span><span class="p">(</span><span class="n">__FS__</span><span class="p">,</span> <span class="mi">40LL</span><span class="p">);</span>
+<span class="n">__printf_chk</span><span class="p">(</span><span class="mi">1LL</span><span class="p">,</span> <span class="s">"Input flag:"</span><span class="p">,</span> <span class="n">a3</span><span class="p">);</span>
+<span class="n">sub_4010B0</span><span class="p">(</span><span class="o">&amp;</span><span class="n">v4</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kr">__int8</span><span class="p">)</span><span class="n">sub_400DA0</span><span class="p">(</span><span class="o">&amp;</span><span class="n">v4</span><span class="p">)</span> <span class="p">)</span>
+  <span class="n">puts</span><span class="p">(</span><span class="s">"Right."</span><span class="p">);</span>
+<span class="k">else</span>
+  <span class="n">puts</span><span class="p">(</span><span class="s">"Wrong."</span><span class="p">);</span>
+</code></pre></div></div>
+<p>这里值得学习的是这里第一句话开启了栈保护.然后就是两个关键函数需要识别.这里第一个函数很好弄啦.其实是一个scanf函数.但是很奇怪IDA为什么没有识别出来.等以后搞了IDC脚本再想办法怎样能增强IDA的函数识别能力了.</p>
+
+<p>接下来关键的就是sub_400DA0这个函数了.点进去你会发现函数量很大而且有的函数十分复杂.这里我们来一个个进行分析.</p>
+
+<p>首先就是一个判断</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">do</span>
+    <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kr">__int8</span><span class="p">)((</span><span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="n">src</span> <span class="o">+</span> <span class="n">v5</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xDF</span><span class="p">)</span> <span class="o">-</span> <span class="mi">65</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mh">0x19u</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0LL</span><span class="p">;</span>
+      <span class="o">++</span><span class="n">v5</span><span class="p">;</span>
+    <span class="p">}</span><span class="k">while</span><span class="p">(</span><span class="n">v5</span><span class="o">!=</span><span class="mi">4</span><span class="p">)</span>
+</code></pre></div></div>
+<p>这里很好理解.就是输入的参数和0xDF进行与操作之后减去65的值要不大于0x19.所以我们的输入必须满足这个条件才能继续进入下面的验证.事实上这是一种非常巧妙的筛选出英文字母的方法.值得学习!总结一下就是说输入的前4位必须是英文字母.</p>
+
+<p>随后发现这个三段的函数,明显取输入的前4位生成MD5</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sub_401560</span><span class="p">(</span><span class="o">&amp;</span><span class="n">v32</span><span class="p">,</span> <span class="n">src</span><span class="p">);</span>
+<span class="n">sub_401E20</span><span class="p">(</span><span class="o">&amp;</span><span class="n">v32</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">v22</span><span class="p">,</span> <span class="mi">4LL</span><span class="p">);</span>
+<span class="n">sub_401F30</span><span class="p">(</span><span class="o">&amp;</span><span class="n">v32</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">v30</span><span class="p">);</span>
+</code></pre></div></div>
+<p>再继续分析,知生成的MD5值又作为参数传入了下面的一个关键的函数sub_4013F0</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">do</span>
+      <span class="p">{</span>
+        <span class="n">v10</span> <span class="o">=</span> <span class="p">(</span><span class="n">__int64</span><span class="p">)</span><span class="n">v6</span> <span class="o">+</span> <span class="n">v9</span><span class="p">;</span>
+        <span class="n">v11</span> <span class="o">=</span> <span class="p">(</span><span class="n">__int64</span><span class="p">)</span><span class="n">v7</span> <span class="o">+</span> <span class="n">v9</span><span class="p">;</span>
+        <span class="n">v9</span> <span class="o">+=</span> <span class="mi">8LL</span><span class="p">;</span>
+        <span class="n">sub_4013F0</span><span class="p">(</span><span class="n">v11</span><span class="p">,</span> <span class="p">(</span><span class="n">__int64</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v29</span><span class="p">,</span> <span class="n">v10</span><span class="p">);</span>
+      <span class="p">}</span>
+</code></pre></div></div>
+<p>可能这里有点绕.但是你如果边动手边理解的话,肯定是很轻松搞定的.这里我们就需要逆向的经验啦.识别出这个函数的内容.事实上这里是一个DES加密函数.没有经验的初学者如果是硬刚的话,就真的实会刚出硬伤的.</p>
+
+<p>下面又是一个关键函数</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sub_400A00</span><span class="p">(</span><span class="n">v6</span><span class="p">,</span> <span class="n">v13</span><span class="p">,</span> <span class="n">v12</span><span class="p">);</span>
+</code></pre></div></div>
+<p>这里也需要经验识别.才能知道原来这是进行Base64的加密.然后继续到下方</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="p">(</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">117</span><span class="p">;</span>
+            <span class="p">;</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="o">&amp;</span><span class="n">v23</span> <span class="o">+</span> <span class="n">v16</span> <span class="o">-</span> <span class="mi">6</span> <span class="o">*</span> <span class="p">((</span><span class="kt">unsigned</span> <span class="n">__int64</span><span class="p">)(</span><span class="mh">0x0AAAAAAAAAAAAAAABLL</span> <span class="o">*</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="n">__int128</span><span class="p">)</span><span class="n">v16</span> <span class="o">&gt;&gt;</span> <span class="mi">64</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">2</span><span class="p">))</span> <span class="p">)</span>
+      <span class="p">{</span>
+        <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="n">v15</span> <span class="o">+</span> <span class="n">v16</span><span class="p">)</span> <span class="o">=</span> <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="n">v13</span> <span class="o">+</span> <span class="n">v16</span><span class="p">)</span> <span class="o">^</span> <span class="n">i</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span> <span class="n">v14</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="kt">signed</span> <span class="kt">int</span><span class="p">)</span><span class="o">++</span><span class="n">v16</span> <span class="p">)</span>
+          <span class="k">break</span><span class="p">;</span>
+      <span class="p">}</span>
+</code></pre></div></div>
+<p>这里是一个简单的异或运算.我们将这个异或运算逆回去就可以了.(友情小提示,这里搜索0x0AAAAAAAAAAAAAAABLL还可以知道这个异或运算在XDCTF2015中有过类似实现)</p>
+
+<p>之后的运算就很简单了.这样的一个程序也就这样逆向完毕了.这样的一个Linux的x64程序也就这样搞定了.</p>
+
+<h2 id="hurryup">Hurryup</h2>
+
+<p>gui打开jar包，找到getflag那个函数 能看到密钥是个数字。密钥本来的生成算法是以apk本身签名为key解一个aes的加密</p>
+
+<p>直接暴力这个数字</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">from</span> <span class="n">Crypto</span><span class="p">.</span><span class="n">Cipher</span> <span class="n">import</span> <span class="n">AES</span>
+<span class="k">for</span> <span class="n">i</span> <span class="n">in</span> <span class="n">xrange</span><span class="p">(</span><span class="mh">0xffffffff</span><span class="p">)</span><span class="o">:</span>
+  <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">10000</span> <span class="o">==</span> <span class="mi">0</span><span class="o">:</span> <span class="n">print</span> <span class="n">i</span>
+  <span class="n">enc</span> <span class="o">=</span> <span class="n">AES</span><span class="p">.</span><span class="n">new</span><span class="p">((</span><span class="n">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">+</span><span class="err">'</span><span class="n">x00</span><span class="err">'</span><span class="o">*</span><span class="mi">16</span><span class="p">)[</span><span class="o">:</span><span class="mi">16</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span> <span class="n">AES</span><span class="p">.</span><span class="n">MODE_CBC</span><span class="p">,</span> <span class="n">IV</span><span class="o">=</span> <span class="s">"0102030405060708"</span><span class="p">)</span>
+  <span class="n">buf</span> <span class="o">=</span> <span class="n">enc</span><span class="p">.</span><span class="n">decrypt</span><span class="p">(</span><span class="s">"tQJWYl+8C4cO2jwq782P5qc/9FXVF6cedVTtozSnyFk="</span><span class="p">.</span><span class="n">decode</span><span class="p">(</span><span class="err">'</span><span class="n">base64</span><span class="err">'</span><span class="p">))</span>
+
+<span class="k">if</span> <span class="err">'</span><span class="n">flag</span><span class="err">'</span> <span class="n">in</span> <span class="n">buf</span><span class="o">:</span>
+  <span class="n">print</span> <span class="n">buf</span>
+</code></pre></div></div>
+<p>得到密钥9953，再解密，得到flag</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a   class="pageNavInvalid"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/01/Github-Pages-Jekyll/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/01/Github-Pages-Jekyll/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

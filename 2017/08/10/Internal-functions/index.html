@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-05 Internal functions</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-05 Internal functions</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-10">2017-08-10</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="internal-functions">Internal functions</h2>
+
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>这里将列出内部使用的一些常见函数，值得注意的是有些函数实际上直接使用<code class="highlighter-rouge">#define</code>进行定义，因此调用参数发生的变化实际上在调用结束后依然存在，并假定未设置MALLOC_DEBUG</p>
+
+<h2 id="arena_get-ar_ptr-size">arena_get (ar_ptr, size)</h2>
+
+<p>获得一块arena并锁定相应的互斥体。<code class="highlighter-rouge">ar_ptr</code>指向获得的相应arena，size`表示需要获得的内存大小。</p>
+
+<h2 id="sysmalloc-todo">sysmalloc [TODO]</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/*
+   sysmalloc handles malloc cases requiring more memory from the system.
+   On entry, it is assumed that av-&gt;top does not have enough
+   space to service request for nb bytes, thus requiring that av-&gt;top
+   be extended or replaced.
+*/</span>
+</code></pre></div></div>
+
+<h2 id="void-alloc_perturb-char-p-size_t-n">void alloc_perturb (char *p, size_t n)</h2>
+
+<p>如果<code class="highlighter-rouge">perturb_byte</code>(malloc使用<code class="highlighter-rouge">M_PERTURB</code>后的可变参数)非零(默认为0)，就会将<code class="highlighter-rouge">p</code>指向<code class="highlighter-rouge">n</code>字节设置为等于<code class="highlighter-rouge">perturb_byte</code> ^ 0xff</p>
+
+<h2 id="void-free_perturb-char-p-size_t-n">void free_perturb (char *p, size_t n)</h2>
+
+<p>如果<code class="highlighter-rouge">perturb_byte</code>(malloc使用<code class="highlighter-rouge">M_PERTURB</code>后的可变参数)非零(默认为0)，就会将<code class="highlighter-rouge">p</code>指向<code class="highlighter-rouge">n</code>字节设置为等于<code class="highlighter-rouge">perturb_byte</code></p>
+
+<h2 id="void-malloc_init_state-mstate-av">void malloc_init_state (mstate av)</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/*
+   Initialize a malloc_state struct.
+
+   This is called only from within malloc_consolidate, which needs
+   be called in the same contexts anyway.  It is never called directly
+   outside of malloc_consolidate because some optimizing compilers try
+   to inline it at all call points, which turns out not to be an
+   optimization at all. (Inlining it in malloc_consolidate is fine though.)
+ */</span>
+</code></pre></div></div>
+
+<ol>
+  <li>对于非fastbins，会为每一个bin创建空的循环链表</li>
+  <li>为<code class="highlighter-rouge">av</code>设置<code class="highlighter-rouge">FASTCHUNKS_BIT</code>标志位</li>
+  <li>初始化<code class="highlighter-rouge">av-&gt;top</code>指向第一个unsorted chunk</li>
+</ol>
+
+<h2 id="unlinkav-p-bk-fd">unlink(AV, P, BK, FD)</h2>
+
+<p>以下是从一个bin中移除chunk的简要定义</p>
+
+<ol>
+  <li>检查chunk的size是否等于next chunk的prev_size，如果不等，则抛出error(corrupted size vs. prev_size)</li>
+  <li>检查<code class="highlighter-rouge">P-&gt;fd-&gt;bk == P ?</code> 以及 <code class="highlighter-rouge">P-&gt;bk-&gt;fd == P ?</code>，若不然，抛出error(corrupted double-linked list)</li>
+  <li>调整了相邻堆块的前向指针(fd)和后向指针(bk)以便清除</li>
+  <li>设置<code class="highlighter-rouge">P-&gt;fd-&gt;bk</code> = <code class="highlighter-rouge">P-&gt;bk</code></li>
+  <li>设置<code class="highlighter-rouge">P-&gt;bk-&gt;fd</code> = <code class="highlighter-rouge">P-&gt;fd</code></li>
+</ol>
+
+<h2 id="void-malloc_consolidatemstate-av">void malloc_consolidate(mstate av)</h2>
+
+<p>以下针对free()的特定版本</p>
+
+<ol>
+  <li>检查<code class="highlighter-rouge">global_max_fast</code>是否为0(未初始化<code class="highlighter-rouge">av</code>时)，如果为0，则以<code class="highlighter-rouge">av</code>为参数调用<code class="highlighter-rouge">malloc_init_state</code>并返回。</li>
+  <li>如果<code class="highlighter-rouge">global_max_fast</code>非零，则为<code class="highlighter-rouge">av</code>清除<code class="highlighter-rouge">FASTCHUNKS_BIT</code>标志</li>
+  <li>从头至尾遍历fastbin数组：</li>
+  <li>如果非空，则锁定当前fastbin堆块并继续</li>
+  <li>如果前一个堆块(内存意义上的)处于空闲状态，则对前一个堆块进行<code class="highlighter-rouge">unlink</code>操作</li>
+  <li>如果后一个堆块(内存意义上的)不是top chunk：
+    1. 如果后一个堆块处于空闲状态，则对后一个堆块进行<code class="highlighter-rouge">unlink</code>操作
+    2. 如果前后两个堆块(内存意义上的)都处于空闲状态，那么前后两个堆块合并，并将合并后的堆块添加到unsorted bin的链表首部</li>
+  <li>如果下一个堆块(内存意义上的)是top chunk，则将堆块和top chunk合并</li>
+</ol>
+
+<p><em>注意</em>： 对于堆块是否处于空闲是根据<code class="highlighter-rouge">PREV_IN_USE</code>标志判断，因此，fastbin堆块并不会被认为是空闲状态。</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/09/malloc-chunk/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/10/core-functions/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/09/malloc-chunk/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/10/core-functions/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

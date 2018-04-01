@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>2017 SWPU cm50和cm100 解题wp</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>2017 SWPU cm50和cm100 解题wp</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-11-15">2017-11-15</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#writeups" title="writeups">writeups</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="cm50">cm50</h2>
+
+<p>题目下载链接: <a href="http://od7mpc53s.bkt.clouddn.com/2017-swpu-cm50.zip">cm50.zip</a></p>
+
+<p>.net程序用dnspy打开，其实就是一个拨打电话的程序。输入电话号码，然后点击“拨打”键就可以打电话。</p>
+
+<p>用dnspy打开后，关键逻辑在于“拨打”的点击事件里。</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/2017-swpu-click.png" alt="click" /></p>
+
+<p>首先验证电话号码长度是否为5， 然后再将电话号码逐位跟4异或并与contrast数组比较。由于异或的传递性，我们可以直接拿contrast跟4异或就好了。这里可以得到<code class="highlighter-rouge">08067</code></p>
+
+<p>之后的flag跟输入的电话号码没有关系，而是直接xor1和xor2和4异或得到，结果是<code class="highlighter-rouge">greet_08067</code></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">xor1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">86</span><span class="p">,</span><span class="mi">65</span><span class="p">,</span><span class="mi">83</span><span class="p">,</span><span class="mi">85</span><span class="p">,</span><span class="mi">76</span><span class="p">,</span><span class="mi">111</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">xor2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">53</span><span class="p">,</span><span class="mi">55</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">52</span><span class="p">,</span><span class="mi">60</span><span class="p">,</span><span class="mi">52</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">51</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">50</span><span class="p">]</span>
+<span class="n">contrast</span> <span class="o">=</span> <span class="p">[</span><span class="mi">52</span><span class="p">,</span><span class="mi">60</span><span class="p">,</span><span class="mi">52</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">51</span><span class="p">]</span>
+<span class="n">phoneNum</span> <span class="o">=</span> <span class="s">""</span>
+<span class="n">flag</span> <span class="o">=</span> <span class="s">""</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">5</span><span class="p">):</span>
+    <span class="n">contrast</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">^=</span> <span class="mi">4</span>
+    <span class="n">phoneNum</span> <span class="o">+=</span> <span class="nb">chr</span><span class="p">(</span><span class="n">contrast</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+<span class="k">print</span> <span class="n">phoneNum</span>
+
+<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">11</span><span class="p">):</span>
+    <span class="n">flag</span> <span class="o">+=</span> <span class="nb">chr</span><span class="p">(</span><span class="n">xor1</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">^</span> <span class="n">xor2</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">^</span> <span class="mi">4</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="n">flag</span>
+
+<span class="c"># 08067</span>
+<span class="c"># greet_08067</span>
+</code></pre></div></div>
+
+<h2 id="cm100">cm100</h2>
+
+<p>题目下载链接: <a href="http://od7mpc53s.bkt.clouddn.com/2017-swpu-CM100.zip">CM100.zip</a></p>
+
+<p>界面没有按钮，也没有什么字符串。尝试输入一些长度，发现输入了16个字符后会显示“try again”的信息
+但是用IDA打开查找字符串的时候并没有这个字符串。因此可能程序有做信息隐藏。</p>
+
+<p>我们用OD打开，对GetWindowText下断运行。</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/2017-swpu-1.png" alt="1" />
+我们按下Ctrl+F9返回到用户模块</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/2017-swpu-2.png" alt="2" /></p>
+
+<p>发现上面就是GetWindowText的api函数，我们继续向下运行，在<code class="highlighter-rouge">call 0041074A</code>处，观察eax的结果，发现存储的是我们输入字符串的地址，那么在IDA中，我们就可以将这块函数(004187F2)标记为getInputStr。</p>
+
+<p>我们继续return，看看getInputStr返回到哪里</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/2017-swpu-3.png" alt="3" /></p>
+
+<p>显然，回到了004026A6的位置。在IDA里搜索这附近的函数，只有sub_402600。</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/2017-swpu-4.png" alt="4" /></p>
+
+<p>用IDA分析MFC程序就是很乱。所以我们最好是用OD动态调，观察寄存器相关数据。</p>
+
+<p>我们用OD打开，然后输入1234567890123456，程序再断下来。我们向下分析，有几个函数，先尝试观察这些函数的返回值。</p>
+
+<p>在4026E7处，我们发现</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/2017-swpu-5.png" alt="5" /></p>
+
+<p>eax寄存器存储了”Congratulations”的地址。因此可以认为这是一个关键跳。而在IDA中</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="n">v9</span> <span class="o">=</span> <span class="n">sub_402310</span><span class="p">(</span><span class="n">input_3</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">v10</span> <span class="o">=</span> <span class="n">String</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">v9</span> <span class="p">)</span>
+      <span class="n">v10</span> <span class="o">=</span> <span class="p">(</span><span class="n">CHAR</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v19</span><span class="p">;</span>
+</code></pre></div></div>
+<p>跳转是根据sub_402310的返回值来判断的。因此我们可以确定，这里就是字符串的处理函数！</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/2017-swpu-6.png" alt="6" /></p>
+
+<p>主要是一些字符交换的操作</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code>      <span class="n">v5</span> <span class="o">=</span> <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="n">v4</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+      <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="n">v4</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="n">v4</span><span class="p">;</span>
+      <span class="n">v6</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
+      <span class="o">*</span><span class="p">(</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="n">v4</span> <span class="o">=</span> <span class="n">v5</span><span class="p">;</span>
+</code></pre></div></div>
+<p>以及</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code>          <span class="n">v9</span> <span class="o">=</span> <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v14</span> <span class="o">+</span> <span class="n">v7</span><span class="p">);</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v14</span> <span class="o">+</span> <span class="n">v7</span><span class="p">)</span> <span class="o">=</span> <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v14</span> <span class="o">+</span> <span class="n">v7</span> <span class="o">+</span> <span class="mi">4</span><span class="p">);</span>
+          <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v14</span> <span class="o">+</span> <span class="n">v7</span> <span class="o">+</span> <span class="mi">4</span><span class="p">)</span> <span class="o">=</span> <span class="n">v9</span><span class="p">;</span>
+</code></pre></div></div>
+<p>最后的字符串比较部分：</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">LABEL_10:</span>
+    <span class="n">v11</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">else</span>
+  <span class="p">{</span>
+    <span class="k">while</span> <span class="p">(</span> <span class="o">*</span><span class="p">((</span><span class="n">_BYTE</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v14</span> <span class="o">+</span> <span class="n">v10</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kr">__int8</span><span class="p">)</span><span class="n">byte_583430</span><span class="p">[</span><span class="n">v10</span><span class="p">]</span> <span class="p">)</span>
+    <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span> <span class="o">++</span><span class="n">v10</span> <span class="o">&gt;=</span> <span class="n">v3</span> <span class="p">)</span>
+        <span class="k">goto</span> <span class="n">LABEL_10</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">v11</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="p">}</span>
+</code></pre></div></div>
+<p>这里的byte_583430是<code class="highlighter-rouge">1H@Y1S0718760Dm3</code>因此我们可以很轻松获得结果
+<code class="highlighter-rouge">flag:H1Y@D1708067S1m3</code></p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/11/15/hctf-level1/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/11/16/!EP(EXE-Pack)v1_2/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/11/15/hctf-level1/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/11/16/!EP(EXE-Pack)v1_2/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

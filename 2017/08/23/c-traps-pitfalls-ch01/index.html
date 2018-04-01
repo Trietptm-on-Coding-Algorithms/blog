@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>C陷阱与缺陷 阅读笔记</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>C陷阱与缺陷 阅读笔记</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-23">2017-08-23</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#c/c++" title="c/c++">c/c++</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#c/c++" title="c/c++">c/c++</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="11--不同于-">1.1 = 不同于 ==</h2>
+
+<p>该语句本意是检查x是否等于y:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">break</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>而实际上是将y的值赋给了x, 然后检查该值是否为0</p>
+
+<p>下例中循环语句的本意是跳过文件中的空格符, 制表符和换行符:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">while</span><span class="p">(</span><span class="n">c</span> <span class="o">=</span> <span class="err">''</span> <span class="o">||</span> <span class="n">c</span> <span class="o">==</span> <span class="sc">'\t'</span> <span class="o">||</span> <span class="n">c</span> <span class="o">==</span> <span class="sc">'\n'</span><span class="p">){</span>
+  <span class="n">c</span> <span class="o">=</span> <span class="n">getc</span><span class="p">(</span><span class="n">f</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>但实际这里误将比较运算符==写成了赋值运算符=, 因此无论变量c此前为何值, 上述表达式求值的结果都是1, 因此循环将一直进行下去直到整个文件结束.</p>
+
+<ul>
+  <li>当确实需要对变量赋值并检查该变量的新值是否为0时, 应该显式进行比较</li>
+</ul>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">foo</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>应该写作</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">((</span><span class="n">x</span> <span class="o">=</span> <span class="n">y</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">foo</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>同样, 把赋值运算误写成比较运算, 同样会造成混淆</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">((</span><span class="n">filedesc</span> <span class="o">==</span> <span class="n">open</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">0</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">error</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>上例中filedesc本来是用于存储open()函数调用后的返回值, 然后将filedesc与0进行比较. 但是因为这里比较运算符==的结果只可能是0或1, 永远不可能小于0, 因此error()函数将永远无法被调用.</p>
+
+<h2 id="13-词法分析中的贪心法">1.3 词法分析中的”贪心法”</h2>
+
+<ul>
+  <li>贪心法: 编译器从左到右一个一个字符地读入, 如果该字符可能组成一个符号, 那么再读入下一个找字符, 判断已经读入的两个字符组成的字符串是否可能是一个符号的组成部分; 如果可能, 继续读入下一个字符, 重复上述判断, 直到读入的字符组成的字符串已不再可能组成一个有意义的符号.</li>
+</ul>
+
+<p>比如<code class="highlighter-rouge">a---b</code>与表达式<code class="highlighter-rouge">a -- - b</code>含义相同, 而与<code class="highlighter-rouge">a - -- b</code>含义不同</p>
+
+<p>同样, 下面的语句本意似乎是用x除以p所指向的值, 再把所得的商再赋给y:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="o">/*</span><span class="n">p</span><span class="p">;</span>
+</code></pre></div></div>
+<p>但实际上, <code class="highlighter-rouge">/*</code>被编译器理解为一段注释的开始, 编译器将不断地读入字符, 知道<code class="highlighter-rouge">*/</code>出现为止. 因此将上面的语句重写如下:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="o">*</span><span class="n">p</span><span class="p">;</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="o">/</span><span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>这样得到的实际效果才是语句注释所表示的原意.</p>
+
+<h2 id="14-整型变量">1.4 整型变量</h2>
+
+<p>许多c编译器会把8和9也作为八进制数字处理. 例如, <code class="highlighter-rouge">0195</code>的含义是<code class="highlighter-rouge">1x8^2 + 9*8^1 + 5x8^0</code>, 也就是<code class="highlighter-rouge">141(十进制)</code>或<code class="highlighter-rouge">0215(八进制)</code>.</p>
+
+<p>需要注意这种情况, 有时候在上下文中为了格式对齐的需要, 可能无意中将十进制数写成了八进制</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="p">{</span>
+  <span class="kt">int</span> <span class="n">part_number</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="o">*</span><span class="n">description</span><span class="p">;</span>
+<span class="p">}</span><span class="n">parttab</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="mo">046</span><span class="p">,</span> <span class="s">"left-handed widget"</span>
+  <span class="mo">047</span><span class="p">,</span> <span class="s">"right-handed widget"</span>
+  <span class="mi">125</span><span class="p">,</span> <span class="s">"frammis"</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<h2 id="15-字符与字符串">1.5 字符与字符串</h2>
+
+<ul>
+  <li>用单引号引起的一个字符实际上代表一个整数, 整数值对应于该字符在编译器采用的字符集中的序列值</li>
+  <li>用双引号引起的字符串, 代表的却是一个指向无名数组起始字符的指针, 该数组被双引号之间的字符以及一个额外的二进制数值为0的字符<code class="highlighter-rouge">\0</code>初始化</li>
+</ul>
+
+<h2 id="21-理解函数声明">2.1 理解函数声明</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">float</span> <span class="o">*</span><span class="n">g</span><span class="p">(),</span> <span class="p">(</span><span class="o">*</span><span class="n">h</span><span class="p">)();</span>
+</code></pre></div></div>
+<p>表示<code class="highlighter-rouge">*g()</code>和<code class="highlighter-rouge">(*h)()</code>是浮点表达式</p>
+<ul>
+  <li>因为()结合优先级高于*, *g()也就是*(g()): g是一个函数, 该函数的返回值类型为指向浮点数的指针</li>
+  <li>同理, h是函数指针, h所指向的函数的返回值为浮点类型</li>
+</ul>
+
+<p>得到类型转换符: 只需要把声明中的变量名和声明末尾的分号去掉, 再将剩余的部分用一个括号整个”封装”起来即可, 如下面的声明</p>
+<ul>
+  <li><code class="highlighter-rouge">float (*h)();</code>表示h是一个指向返回值为浮点类型的函数的指针</li>
+  <li><code class="highlighter-rouge">(float (*)())</code>表示一个”指向返回值为浮点类型的函数的指针”的类型转换符</li>
+</ul>
+
+<p>接下来分析表达式<code class="highlighter-rouge">(*(void(*)())0)()</code></p>
+<ul>
+  <li>假定<code class="highlighter-rouge">fp</code>是一个函数指针, 那么调用<code class="highlighter-rouge">fp</code>所指向的函数: <code class="highlighter-rouge">(*fp)()</code>, 这里要注意<code class="highlighter-rouge">fp</code>两侧的括号!</li>
+  <li>那么可以这样写 <code class="highlighter-rouge">(*0)();</code>, 调用”0”所指向的函数, 因为运算符*必须要一个指针来作操作数, 因此需要类型转换符<code class="highlighter-rouge">(void(*)())</code></li>
+  <li>类型转换符<code class="highlighter-rouge">(void(*)())</code>实际意义是: 指向返回值为void的函数的指针, 那么整个表达式就分析完成</li>
+</ul>
+
+<h2 id="22-运算符的优先级问题">2.2 运算符的优先级问题</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">FLAG</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>  <span class="p">{</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>这实际上是一个错误的语句, 因为!=运算符的优先级要高于&amp;运算符</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">r</span> <span class="o">=</span> <span class="n">hi</span><span class="o">&lt;&lt;</span> <span class="mi">4</span> <span class="o">+</span> <span class="n">low</span><span class="p">;</span>
+</code></pre></div></div>
+<p>实际上也是错误的. 因为加法运算的优先级高于移位运算. 要更正有两种方法:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">r</span> <span class="o">=</span> <span class="p">(</span><span class="n">hi</span><span class="o">&lt;&lt;</span><span class="mi">4</span><span class="p">)</span> <span class="o">+</span> <span class="n">low</span><span class="p">;</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">hi</span><span class="o">&lt;&lt;</span><span class="mi">4</span> <span class="o">|</span> <span class="n">low</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>关于优先级, 要记住的最重要的两点是:</p>
+<ul>
+  <li>任何一个逻辑运算符的优先级低于任何一个关系运算符</li>
+  <li>移位运算符的优先级比算数运算符要低, 但比关系运算符要高.</li>
+</ul>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">while</span><span class="p">(</span><span class="n">c</span><span class="o">=</span><span class="n">getc</span><span class="p">(</span><span class="n">in</span><span class="p">)</span> <span class="o">!=</span> <span class="n">EOF</span><span class="p">)</span>
+  <span class="n">putc</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">out</span><span class="p">);</span>
+</code></pre></div></div>
+<p>这里因为赋值运算符的优先级低于任何一个比较运算符, 因此c的值实际上是函数getc(in)的返回值与EOF比较的结果</p>
+
+<h2 id="23-注意作为语句借书标志的分号">2.3 注意作为语句借书标志的分号</h2>
+
+<ul>
+  <li>多写一个分号
+    <div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">big</span><span class="p">);</span>
+<span class="n">big</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</code></pre></div>    </div>
+  </li>
+  <li>少写一个分号
+    <div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span><span class="p">(</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">)</span>
+<span class="k">return</span>
+<span class="n">logrec</span><span class="p">.</span><span class="n">date</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="n">logrec</span><span class="p">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+<span class="n">logrec</span><span class="p">.</span><span class="n">code</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+</code></pre></div>    </div>
+  </li>
+  <li>还有一种情形, 那就是当一个声明的结尾紧跟一个函数定义时, 如果声明结尾的分号被省略, 编译器可能会把声明的类型视作函数的返回值类型
+    <div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">logrec</span><span class="p">{</span>
+<span class="kt">int</span> <span class="n">date</span><span class="p">;</span>
+<span class="kt">int</span> <span class="n">time</span><span class="p">;</span>
+<span class="kt">int</span> <span class="n">code</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">main</span><span class="p">(){</span>
+<span class="p">...</span>
+<span class="p">}</span>
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<h2 id="24-switch语句">2.4 switch语句</h2>
+
+<ul>
+  <li>switch语句的各个case没有加上相应的break</li>
+</ul>
+
+<h2 id="25-函数调用">2.5 函数调用</h2>
+
+<p>c语言要求: 在函数调用时即时函数不带参数也应该包括参数列表, 因此如果f是一个函数, <code class="highlighter-rouge">f();</code>是一个函数的调用语句, 而<code class="highlighter-rouge">f;</code>却是一个什么也不做的语句. 更准确来说, 这个语句计算函数f的地址, 却不会调用该函数.</p>
+
+<h2 id="26-悬挂else引发的问题">2.6 “悬挂”else引发的问题</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="k">if</span><span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>  <span class="n">error</span><span class="p">();</span>
+<span class="k">else</span><span class="p">{</span>
+  <span class="n">z</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">;</span>
+  <span class="n">f</span><span class="p">(</span><span class="o">&amp;</span><span class="n">z</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="32-非数组的指针">3.2 非数组的指针</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">char</span> <span class="o">*</span><span class="n">r</span><span class="p">,</span> <span class="o">*</span><span class="n">malloc</span><span class="p">();</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">+</span> <span class="n">strlen</span><span class="p">(</span><span class="n">t</span><span class="p">));</span>
+<span class="n">strcpy</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">s</span><span class="p">);</span>
+<span class="n">strcpy</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">);</span>
+</code></pre></div></div>
+<ul>
+  <li>malloc有可能无法提供请求的内存, 这种情况下, malloc函数会通过返回一个空指针来作为”内存分配失败”的信号</li>
+  <li>给r分配的内存在使用完之后应该及时释放</li>
+  <li>malloc并未分配足够的内存(“还有字符串末尾的空字符做结束标志”)
+``` c
+char *r, *malloc();
+r = malloc(strlen(s) + strlen(t) + 1);
+if(!r){
+complain();
+exit(1);
+}</li>
+</ul>
+
+<p>strcpy(r, s);
+strcpy(r, t);</p>
+
+<p>free(r);</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## 3.3 作为参数的数组声明
+
+在c语言中, 我们没有办法可以将一个数组作为函数参数直接传递. 如果我们使用数组名作为参数, 那么数组名会立刻被转换为指向该数组第1个元素的指针
+
+``` c
+char hello[] = "hello";
+printf("%s\n", hello);
+//等价于 printf("%s\n", &amp;hello[0]);
+</code></pre></div></div>
+
+<h2 id="34-避免举隅法">3.4 避免”举隅法”</h2>
+
+<p>c语言一个常见的”陷阱”: 混淆指针与指针所指向的数据, 我们需要记住的是, 复制指针并不同时赋值指针所指向的数据.</p>
+
+<h2 id="35-空指针并非空字符串">3.5 空指针并非空字符串</h2>
+
+<p>当常数<code class="highlighter-rouge">0</code>被转换为指针使用时, 这个指针绝对不能被接触引用. 换句话说, 当我们将<code class="highlighter-rouge">0</code>赋值给一个指针变量时, 绝对<code class="highlighter-rouge">不能企图使用该指针所指向的内存中存储的内容</code>.例如下面的写法是完全合法的:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">p</span> <span class="o">==</span> <span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span> <span class="mi">0</span><span class="p">)</span> <span class="p">...</span>
+</code></pre></div></div>
+<p>但如果写成下面这样就是非法的:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">strcmp</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span> <span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">...</span>
+</code></pre></div></div>
+<p>原因在于库函数strcmp的实现中会包括查看它的指针参数所指向的内存中的内容的操作.</p>
+
+<h2 id="36-边界计算与不对称边界">3.6 边界计算与不对称边界</h2>
+
+<p>在所有常见的程序设计错误中, 最难于察觉的一类是”栏杆错误”, 也常被称为”差一错误”(off-by-one error).那么是否存在一些编程技巧, 能够降低这类错误发生的可能性呢? 这个编程技巧不但存在, 而且可以一言以蔽之:</p>
+<ul>
+  <li>用第一个入界点和第一个出界点来表示一个数值范围
+    <ul>
+      <li>如<code class="highlighter-rouge">x&gt;=16且x&lt;=37</code>, 就可以说整数x满足边界条件<code class="highlighter-rouge">x&gt;=16且x&lt;38</code></li>
+    </ul>
+  </li>
+</ul>
+
+<p>在处理各种不同类型的缓冲区时, 这种看待方式也特别有用. 我们设置一个指针变量, 让它指向缓冲区的当前位置:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">static</span> <span class="kt">char</span> <span class="o">*</span><span class="n">bufptr</span><span class="p">;</span>
+</code></pre></div></div>
+<p>相比让指针bufptr<code class="highlighter-rouge">始终指向缓冲区中最后一个已占用的字符</code>, 我们让它指向<code class="highlighter-rouge">缓冲区中第一个未被占用的字符</code>会更适合.</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">*</span><span class="n">bufptr</span><span class="o">++</span> <span class="o">=</span> <span class="n">c</span><span class="p">;</span>
+</code></pre></div></div>
+<p>当指针bufptr与&amp;buffer[0]相等时, 缓冲区存放的内容为空, 因此初始化时声明缓冲区为空可以这样写:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">bufptr</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">buffer</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="n">bufptr</span> <span class="o">=</span> <span class="n">buffer</span><span class="p">;</span>
+</code></pre></div></div>
+<p>任何时候缓冲区中已存放的字符数都是<code class="highlighter-rouge">bufptr - buffer</code>, 未被占用的字符数为<code class="highlighter-rouge">N - (bufptr - buffer)</code></p>
+
+<blockquote>
+  <p>在大多数c语言实现中, –n&gt;=0至少与等效的n–&gt;0一样快, 甚至在某些C实现中还要更快. 第一个表达式–n&gt;=0的大小首先从n中减去1, 然后将结果与0比较; 第二个表达式则首先保存n, 从n中减去1, 然后保存值与0的大小.</p>
+</blockquote>
+
+<p>我们用这种写法: <code class="highlighter-rouge">if (bufptr == &amp;buffer[N])</code> 代替 <code class="highlighter-rouge">if( bufptr &gt; &amp;buffer[N-1])</code>原因在于我们要坚持遵守”不对称边界”的原则</p>
+
+<p>照前面的写法, 程序绝大部分开销来自于每次迭代都要进行的两个检查: 一个检查用于判断循环计数器是否到达终值; 另一个检查用于判断缓冲区是否已满. 这样做的结果就是一次只能转移一个字符到缓冲区.</p>
+
+<p>我们可以使用memcpy来一次移动k个字符.</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">bufwrite</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">p</span><span class="p">,</span> <span class="kt">int</span> <span class="n">n</span><span class="p">){</span>
+  <span class="k">while</span> <span class="p">(</span><span class="n">n</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">k</span><span class="p">,</span> <span class="n">rem</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">bufptr</span> <span class="o">==</span> <span class="o">&amp;</span><span class="n">buffer</span><span class="p">[</span><span class="n">N</span><span class="p">])</span> <span class="p">{</span>
+      <span class="n">flushbuffer</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="n">rem</span> <span class="o">=</span> <span class="n">N</span> <span class="o">-</span> <span class="p">(</span><span class="n">bufptr</span> <span class="o">-</span> <span class="n">buffer</span><span class="p">);</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="n">rem</span> <span class="o">?</span> <span class="n">rem</span> <span class="o">:</span> <span class="n">n</span><span class="p">;</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="n">bufptr</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">k</span><span class="p">);</span>
+    <span class="n">bufptr</span> <span class="o">+=</span> <span class="n">k</span><span class="p">;</span>
+    <span class="n">p</span> <span class="o">+=</span> <span class="n">k</span><span class="p">;</span>
+    <span class="n">n</span> <span class="o">-=</span> <span class="n">k</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<h2 id="37-求值顺序">3.7 求值顺序</h2>
+
+<table>
+  <tbody>
+    <tr>
+      <td>C语言中只有四个运算符(&amp;&amp;,</td>
+      <td> </td>
+      <td>, ?: 和 ,), 存在规定的求值顺序</td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <p>分隔函数参数的逗号并非逗号运算符. 例如x和y在函数f(x,y)中的求值顺序是未定义的, 而在函数g((x,y))中确实确定的先x后y的顺序.</p>
+</blockquote>
+
+<p>下面这种从数组x中复制前n个元素到数组y中的做法是不正确的, 因为它对求值顺序作了太多的假设:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">while</span><span class="p">(</span><span class="n">i</span><span class="o">&lt;</span><span class="n">n</span><span class="p">)</span>
+  <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="o">++</span><span class="p">];</span>
+</code></pre></div></div>
+
+<p>上面的代码假设y[i]的地址将在i的自增操作执行之前被求值.但另一方面, 下面这种写法却能正确工作:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">while</span><span class="p">(</span><span class="n">i</span><span class="o">&lt;</span><span class="n">n</span><span class="p">){</span>
+  <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+  <span class="n">i</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="38-运算符--和-">3.8 运算符&amp;&amp;, || 和 !</h2>
+
+<p>考虑下面的代码段, 其作用是在表中查询一个特定的元素:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">while</span> <span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">tabsize</span> <span class="o">&amp;&amp;</span> <span class="n">tab</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">i</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>但假定我们无意中用运算符&amp;替换了&amp;&amp;:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">while</span> <span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">tabsize</span> <span class="o">&amp;</span> <span class="n">tab</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">i</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>这个循环语句也可能”正常”工作, 但仅仅是因为两个非常侥幸的原因:</p>
+<ul>
+  <li>&amp;运算符的两侧都是比较运算. 比较运算的结果为”真”时等于1, “假”时等于0. 只要x和y的取值都限制在0或1, 那么<code class="highlighter-rouge">x&amp;y</code>与<code class="highlighter-rouge">x&amp;&amp;y</code>总是得到相同的结果. 然而如果两个比较运算中的任何一个用除1之外的非0数代表”真”, 那么这个循环就不能正常工作了.</li>
+  <li>对于数组结尾之后的下一个元素, 只要程序不去改变该元素的值, 而仅仅读取它的值, 一般情况下是不会有什么危害的. 因为运算符&amp;和&amp;&amp;不同, 运算符&amp;两侧的操作数都必须被求值.</li>
+</ul>
+
+<h2 id="39-整数溢出">3.9 整数溢出</h2>
+
+<p>当两个操作数都是有符号整数时, “溢出”就有可能发生, 而且”溢出”的结果是未定义的.</p>
+
+<p>假设a和b是两个非负整型变量, 我们需要检查a+b是否会”溢出”, 一种想当然的方式是这样:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="o">+</span><span class="n">b</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">complain</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>这并不能正常运行, 当a+b确实发生溢出时, 所有关于结果如何的假设都不再可靠.</p>
+<ul>
+  <li>例如在某些机器上, 加法运算将设置一个内部寄存器为四种状态之一: 正, 负, 零和溢出. 当a与b相加, 然后检查该内部寄存器的标志是否为”负”. 当加法操作”溢出”时, 这个内部寄存器的状态是溢出而不是负, 那么if语句的检查就会失败.</li>
+</ul>
+
+<p>一种正确的方式是将a和b都强制转换为无符号整数:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">((</span><span class="kt">unsigned</span><span class="p">)</span><span class="n">a</span> <span class="o">+</span> <span class="p">(</span><span class="kt">unsigned</span><span class="p">)</span><span class="n">b</span> <span class="o">&gt;</span> <span class="n">INT_MAX</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">complain</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>不需要无符号算数运算的另一种可行方法是:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">a</span> <span class="o">&gt;</span> <span class="n">INT_MAX</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">complain</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="310-为函数main提供返回值">3.10 为函数main提供返回值</h2>
+
+<p>在某些情况下函数main的返回值却并非无关紧要. 如果一个main函数并不返回任何值, 那么有可能看上去执行失败</p>
+
+<h2 id="41-什么是连接器">4.1 什么是连接器</h2>
+
+<p>典型的连接器把由编译器或汇编器生成的若干个目标模块, 整合成一个被称为载入模块或可执行文件的实体, 该实体能够被操作系统直接执行.</p>
+
+<ul>
+  <li>连接器的输入是一组目标模块和库文件.</li>
+  <li>连接器的输出是一个载入模块.</li>
+  <li>连接器读入目标模块和库文件, 同时生成载入模块</li>
+  <li>对每个目标模块中的每个外部对象, 连接器都要检查载入模块, 看是否已有同名的外部对象. 如果没有, 连接器就将该外部对象添加到载入模块中; 如果有, 连接器就要开始处理命名冲突</li>
+  <li>除了外部对象之外, 目标模块中还可能包括了对其他模块中的外部对象的引用. 例如对函数printf的引用. 当连接器读入一个目标模块时, 它必须解析出目标模块中定义的所有外部对象的引用, 并作出标记说明这些外部对象不再是未定义的.</li>
+</ul>
+
+<h2 id="42-声明与定义">4.2 声明与定义</h2>
+
+<p>如果一个程序对同一个外部变量的定义不止一次, 比如<code class="highlighter-rouge">int a = 7</code>而在另一个文件中<code class="highlighter-rouge">int a = 9</code>, 那么大多数系统会拒绝接受该程序.</p>
+
+<p>如果一个外部变量在多个源文件中定义却并没有指定初始值, 那么某些系统会接受这个程序, 而另外一些系统则不会接受.</p>
+
+<h2 id="43-命名冲突与static修饰符">4.3 命名冲突与static修饰符</h2>
+
+<p>如果在两个不同的源文件中都包括了定义<code class="highlighter-rouge">int a;</code>, 那么它或者表示程序错误(如果连接器禁止外部变量重复定义的话), 或者在两个源文件中共享a的同一个实例.</p>
+
+<p>例如函数f需要调用另一个函数g, 而只有函数f需要调用函数g, 我们可以把函数f与函数都放在一个源文件中, 并且声明函数g为static:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">static</span> <span class="kt">int</span> <span class="n">g</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">){</span>
+  <span class="cm">/* g 函数体 */</span>
+<span class="p">}</span>
+<span class="kt">void</span> <span class="n">f</span><span class="p">(){</span>
+  <span class="cm">/* 其他内容 */</span>
+  <span class="n">b</span> <span class="o">=</span> <span class="n">g</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>如果一个函数仅仅被同一个源文件中的其他函数调用, 我们就应该声明函数为static</p>
+<h2 id="46-头文件">4.6 头文件</h2>
+
+<p>避免上述问题的一个好方法就是: 每个外部对象只在一个地方声明. 这个声明的地方一般就在一个头文件中, 需要用到该外部对象的所有模块都应该包括这个头文件. 特别需要指出的是, 定义该外部对象的模块也应该包括这个头文件.</p>
+
+<h2 id="51-返回整数的getchar函数">5.1 返回整数的getchar函数</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+</span><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="k">const</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span> <span class="p">{</span>
+  <span class="kt">char</span> <span class="n">c</span><span class="p">;</span>
+  <span class="k">while</span> <span class="p">((</span><span class="n">c</span> <span class="o">=</span> <span class="n">getchar</span><span class="p">())</span> <span class="o">!=</span> <span class="n">EOF</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">putchar</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>这个程序乍一看似乎是把标准输入复制到标准输出, 实则不然. 原因在与程序中的变量c被声明为char类型, 而不是int类型. 这意味着无法容下所有可能的字符, 特别是, 可能无法容下EOF.</p>
+<ul>
+  <li>一种可能是, 某些合法的输入字符在被”截断”后使得c的取值与EOF相同</li>
+  <li>另一种可能是, c根本不可能取到EOF这个值</li>
+</ul>
+
+<h2 id="52-更新顺序文件">5.2 更新顺序文件</h2>
+
+<p>下面的程序片段似乎更新了一个顺序文件中选定的记录</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">FILE</span> <span class="o">*</span><span class="n">fp</span><span class="p">;</span>
+<span class="k">struct</span> <span class="n">record</span> <span class="n">rec</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="k">while</span> <span class="p">(</span><span class="n">fread</span><span class="p">((</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">rec</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">rec</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fp</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+  <span class="cm">/* 对rec执行某些操作 */</span>
+  <span class="k">if</span> <span class="p">(</span><span class="cm">/* rec必须被重新写入 */</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">fseek</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="o">-</span><span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="k">sizeof</span><span class="p">(</span><span class="n">rec</span><span class="p">),</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">fwrite</span><span class="p">((</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">rec</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">rec</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fp</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这段代码看上去毫无问题, 但是代码仍然可能运行失败, 而且出错的方式非常难于察觉</p>
+
+<p>问题处在: 如果一个记录需要重新被写入文件, 也就是说, fwrite函数得到执行, 对这个文件执行的下一个操作将是循环开始的fread函数. 因为在fwrite函数调用与fread函数调用之间缺少了一个fseek函数调用, 所以无法进行上述操作. 解决的办法如下:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">while</span> <span class="p">(</span><span class="n">fread</span><span class="p">((</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">rec</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">rec</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fp</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+  <span class="cm">/* 对rec执行某些操作 */</span>
+  <span class="k">if</span> <span class="p">(</span><span class="cm">/* rec必须被重新写入 */</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">fseek</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="o">-</span><span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="k">sizeof</span><span class="p">(</span><span class="n">rec</span><span class="p">),</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">fwrite</span><span class="p">((</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">rec</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">rec</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fp</span><span class="p">);</span>
+    <span class="n">fseek</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="mi">0L</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="53-缓冲输出与内存分配">5.3 缓冲输出与内存分配</h2>
+
+<p>下面程序的作用是把标准输入的内容赋值到标准输出中, 演示了setbuf库函数最显而易见的用法:</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+</span><span class="n">main</span><span class="p">(){</span>
+  <span class="kt">int</span> <span class="n">c</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="n">BUFSIZ</span><span class="p">];</span>
+  <span class="n">setbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="n">buf</span><span class="p">);</span>
+
+  <span class="k">while</span> <span class="p">((</span><span class="n">c</span> <span class="o">=</span> <span class="n">getchar</span><span class="p">())</span> <span class="o">!=</span> <span class="n">EOF</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">putchar</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>遗憾的是, 这个程序是错误的. 仅仅因为一个细微的原因.
+我们不妨思考一下buf缓冲区最后一次被清空是在什么时候? 答案是在main函数结束之后, 作为程序交回控制给操作系统之前C运行时库所必须进行的清理工作的一部分. 但是, 在此之前buf字符数组已经被释放!</p>
+
+<p>要避免这种类型的错误有两种办法</p>
+<ul>
+  <li>第一种办法是让缓冲数组成为静态数组, 既可以直接显式声明buf为静态<code class="highlighter-rouge">static char buf[BUFSIZ]</code>, 也可以把buf声明完全移到main函数之外</li>
+  <li>第二种办法是动态分配缓冲区, 在程序中并不主动释放分配的缓冲区
+    <div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">char</span> <span class="o">*</span><span class="n">malloc</span><span class="p">();</span>
+<span class="n">setbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="n">malloc</span><span class="p">(</span><span class="n">BUFSIZ</span><span class="p">));</span>
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<h2 id="54-使用errno检测错误">5.4 使用errno检测错误</h2>
+
+<p>很多库函数, 特别是那些与操作系统相关的, 当执行失败时会通过一个名称为errno的外部变量, 通知程序该函数调用失败.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/* 调用库函数 */</span>
+<span class="k">if</span><span class="p">(</span><span class="n">errno</span><span class="p">)</span>
+  <span class="cm">/* 处理错误 */</span>
+</code></pre></div></div>
+<p>这里的代码是错误的, 出错原因在于, 在库函数调用没有失败的情况下, 并没有强制要求库函数一定设置errno为0, 这样errno的值就可能是前一个执行失败的库函数设置的值.</p>
+
+<p>因此在调用库函数时, 我们应该首先检测作为错误指示的安徽之, 确定程序执行已经失败, 然后再检查errno, 来搞清楚出错原因:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/* 调用库函数 */</span>
+<span class="k">if</span><span class="p">(</span><span class="err">返回的错误值</span><span class="p">)</span>
+  <span class="err">检查</span><span class="n">errno</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/14/unsafe-unlink-example/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/27/YouCompleteMe/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/14/unsafe-unlink-example/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/27/YouCompleteMe/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

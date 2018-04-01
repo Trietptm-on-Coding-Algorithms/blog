@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>使用Github Pages和Jekyll建站小记</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>使用Github Pages和Jekyll建站小记</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-01">2017-08-01</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#installation" title="installation">installation</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#tool" title="tool">tool</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="使用github-pages建立博客">使用Github Pages建立博客</h2>
+
+<p>每个Github账户都能使用Github Pages这样一个免费空间为自己搭建一个博客，像很多Hexo之类的博客就很流行，也很美观，但是实际上写起博客来还是会很重，而且定制化不强，其实主要还是博客都是别人帮你直接弄好的，你用模板就行了，所以经常博客出现了什么问题，也没有很好的办法解决，自己去定制的话，也会很麻烦。
+当然，你去把博客的源码完整地读一遍也是可以的。</p>
+
+<p>Github Pages现在建立博客很简单，只需要新建一个名为 username.github.io 的仓库，github会自动为你的仓库建立在github pages上（以前是需要自己进入仓库设置里手动点选github pages才行的）</p>
+
+<h2 id="为什么选择jekyll">为什么选择Jekyll</h2>
+
+<p><a href="http://jekyll.com.cn/">Jekyl</a>l是一个静态博客生成器，github pages也支持jekyll，也就是说我们只需要将jekyll生成好的文件上传到你的username.github.io仓库里，github pages就会自动帮你构建jekyll环境，将你的静态博客运行起来。</p>
+
+<p>为什么我要从wordpress弃用换成用jekyll生成静态博客呢？其实主要有这么几个原因</p>
+
+<ul>
+  <li>wordpress会比较笨重，而且有大量的功能都是我不需要的，我如果只是纯粹想写作的话，用wordpress会很累赘</li>
+  <li>wordpress的文档都保存在数据库里，相比起来想要提取以前写过的文档，会麻烦很多，不是直接以某种文件形式保存起来</li>
+  <li>我比较喜欢一种极简风，现在的静态博客排版十分清晰爽朗，让我可以一眼看清楚我写了哪些文章。</li>
+  <li>使用jekyll设置好之后，我只需要本地写好markdown博文后push到我的github仓库上，即可更新博文，相比wordpress更加直接快速，且易于保存</li>
+  <li>可定制性很强，虽然排版会很花时间，但是我可以自由地管理各个参数。而托管在github pages也省去了我管理服务器的麻烦。</li>
+</ul>
+
+<h2 id="来吧本地搭建jekyll环境">来吧，本地搭建jekyll环境</h2>
+
+<p>本地搭建jekyll环境的话，可以说jekyll的官方文档很贴心详细，讲的浅显易懂，所以我大部分操作都是根据官方文档进行的，当然也有借鉴别人的经验。</p>
+
+<p>在安装jekyll之前，需要解决一些软件依赖，所以你首先需要安装如下：</p>
+
+<ul>
+  <li><a href="http://www.ruby-lang.org/en/downloads/">Ruby</a> Jekyll是基于ruby的，因此我们需要本地安装ruby。但你放心，我们并不需要编写ruby代码</li>
+  <li><a href="http://rubygems.org/pages/download">RubyGems</a> 可以说这是ruby的一个包管理器，我们可以使用gem命令很方便地安装很多东西</li>
+  <li>Linux, Unix, or Mac OS X 不建议在windows平台下安装jekyll，但是当然windows也有专门的<a href="http://www.madhur.co.in/blog/2011/09/01/runningjekyllwindows.html">jekyll安装程序</a></li>
+</ul>
+
+<p>随后我们就需要使用RubyGem来帮助我们安装jekyll了，我们只需要在终端输入以下命令即可安装jekyll</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>gem install jekyll
+</code></pre></div></div>
+<p>那么实际上我们的jekyll已经安装完毕了，但是这里我还需要安装一个软件，它是Bundler</p>
+
+<p>Bundler是负责管理RubyGems组件的版本，我们装上它就能保证本地的jekyll环境和远程github pages环境一致</p>
+
+<p>安装命令也很简单，终端输入以下命令</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gem install bundler
+</code></pre></div></div>
+
+<ul>
+  <li>注意！当我们安装好bundler后，在之后我们的网站文件目录下，我们需要建立 <em>Gemfile</em> 文件，并添加以下两行：
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">source</span> <span class="s1">'https://ruby.taobao.org'</span>
+gem <span class="s1">'github-pages'</span>
+<span class="c">#添加好后在终端执行bundle install</span>
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<h2 id="jekyll和bundle的可用命令">jekyll和bundle的可用命令</h2>
+
+<p>bundle的命令比较简单，但是我们之后都需要用bundle来运行jekyll</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bundle update <span class="c">#用来确保本地与github pages的jekyll运行环境相同，保持gem版本一致</span>
+bundle <span class="nb">exec </span>jekyll build <span class="c">#用于运行jekyll生成静态博客文件</span>
+bundle <span class="nb">exec </span>jekyll serve <span class="c">#用于启动我们的静态博客，通过访问 http://localhost:4000 预览网站</span>
+</code></pre></div></div>
+
+<p>jekyll的命令，其实在bundle里我们就有接触了，这里我们列一下：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nv">$ </span>jekyll build
+<span class="c"># =&gt; The current folder will be generated into ./_site</span>
+
+<span class="nv">$ </span>jekyll build <span class="nt">--destination</span> &lt;destination&gt;
+<span class="c"># =&gt; The current folder will be generated into &lt;destination&gt;</span>
+
+<span class="nv">$ </span>jekyll build <span class="nt">--source</span> &lt;<span class="nb">source</span><span class="o">&gt;</span> <span class="nt">--destination</span> &lt;destination&gt;
+<span class="c"># =&gt; The &lt;source&gt; folder will be generated into &lt;destination&gt;</span>
+
+<span class="nv">$ </span>jekyll build <span class="nt">--watch</span>
+<span class="c"># =&gt; The current folder will be generated into ./_site,</span>
+<span class="c">#    watched for changes, and regenerated automatically.</span>
+
+
+<span class="nv">$ </span>jekyll serve
+<span class="c"># =&gt; A development server will run at http://localhost:4000/</span>
+<span class="c"># Auto-regeneration: enabled. Use `--no-watch` to disable.</span>
+
+<span class="nv">$ </span>jekyll serve <span class="nt">--detach</span>
+<span class="c"># =&gt; Same as `jekyll serve` but will detach from the current terminal.</span>
+<span class="c">#    If you need to kill the server, you can `kill -9 1234` where "1234" is the PID.</span>
+<span class="c">#    If you cannot find the PID, then do, `ps aux | grep jekyll` and kil</span>
+
+<span class="nv">$ </span>jekyll serve <span class="nt">--no-watch</span>
+<span class="c"># =&gt; Same as `jekyll serve` but will not watch for changes.</span>
+<span class="c"># As of version 2.4, the "serve" command will watch for changes automatically.</span>
+
+</code></pre></div></div>
+
+<p>正常来说，我们只需要用 jekyll build 和jekyll serve就行了，当然在前面还要加上bundle exec</p>
+
+<h2 id="jekyll-基本结构">jekyll 基本结构</h2>
+
+<p>关于jekyll基本结构，最好还是看<a href="http://jekyll.com.cn/docs/structure/">官方文档</a>，文档里有很详细的说明，一般的jekyll网站目录结构如下</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">.</span>
+├── _config.yml#jekyll的配置文件，很重要也很有用
+├── _drafts#存放草稿，这个随意看个人习惯
+|   ├── begin-with-the-crazy-ideas.textile
+|   └── on-simplicity-in-technology.markdown
+├── _includes#你可以加载这些包含部分到你的布局或者文章中以方便重用.
+|   ├── footer.html
+|   └── header.html
+├── _layouts#我们上传的博文会根据layout类型来进行相应的排版布局
+|   ├── default.html
+|   └── post.html
+├── _posts#这里放的就是你的文章了。文件格式很重要，必须要符合: YEAR-MONTH-DAY-title.MARKUP
+|   ├── 2007-10-29-why-every-programmer-should-play-nethack.textile
+|   └── 2009-04-26-barcamp-boston-4-roundup.textile
+├── _data#随意
+|   └── members.yml
+├── _site#我们用jekyll生成好的静态html文件都存放在这里
+└── index.html#首页
+</code></pre></div></div>
+
+<p>这里有几点必须要注意</p>
+<ul>
+  <li>_post里的文件以及网站根目录下的html文件，都必须要有YAML头信息，才会被jekyll转换</li>
+  <li>凡是有”_“开头的文件夹，在经过jekyll转换后，都不会被包含在_site文件夹里</li>
+  <li>其他一些未被提及的目录和文件如  css 还有 images 文件夹， favicon.ico 等文件都将被完全拷贝到生成的 site 中。</li>
+  <li>我们在关于jekyll自动生成html文件时，需要使用到<a href="http://alfred-sun.github.io/blog/2015/01/10/jekyll-liquid-syntax-documentation/">liquid语法</a></li>
+</ul>
+
+<p>ok,那么开始生成自己的网站目录吧</p>
+
+<h2 id="建立本地的project">建立本地的project</h2>
+
+<p>我们将github上的username.github.io仓库clone到本地后，按照上面的目录结构，将各个文件夹都建立起来之后，就可以使用jekyll运行了。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>bundle <span class="nb">exec </span>jekyll build
+<span class="nv">$ </span>bundle <span class="nb">exec </span>jekyll serve
+</code></pre></div></div>
+
+<p>关于配置方面，我大部分都是参考别人的仓库代码，你也可以参考这个：<a href="https://github.com/programminghistorian/jekyll">programminghistorian/jekyll</a></p>
+
+<p>这里我就不细说啦，因为太多了。看代码就是了</p>
+
+<h2 id="代码高亮">代码高亮</h2>
+
+<p>搭建好我们的博客后，我们要将代码高亮。这里其实我被困扰很久，因为我尝试的几个markdown解析器，都无法正确解析markdown的代码块格式并正确着色，因此我这里是使用的<a href="https://highlightjs.org/">highlight.js</a>，之后在我们的header.html里添加如下代码调用即可</p>
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="na">href=</span><span class="s">"/css/atom-one-light.css"</span><span class="nt">&gt;</span>
+<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"/js/highlight.pack.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;script&gt;</span><span class="nx">hljs</span><span class="p">.</span><span class="nx">initHighlightingOnLoad</span><span class="p">();</span><span class="nt">&lt;/script&gt;</span>
+</code></pre></div></div>
+
+<h2 id="域名绑定">域名绑定</h2>
+
+<p>其实就是将www.vancir.com的dns解析到我的vancir.github.io，方法很简单，但是容易出问题</p>
+
+<p>我们只需要打开vancir.github.io仓库的settings在最下面的github pages项的custom domain上填上自己的域名，不要加上任何比如说http或www的东西。比如我的就是vancir.com
+然后在你的域名管理平台上设置域名解析，一般都会有新手快速设置一类的东西，只需要我们填写ip地址。</p>
+
+<p>关于我们的github pages的ip地址的获取，我们只需要简单ping一下</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ping vancir.github.io
+</code></pre></div></div>
+<p>得到ip地址后在域名解析处填好就可以了。</p>
+
+<h2 id="心得">心得</h2>
+
+<p>整个差不多弄完了，当然你也可以弄些比如rss，mathjax，评论之类的功能。其实整个站都是比较简单的，只是在很多细节问题上，常常会困扰很久。
+但最起码的，css的排版样式问题是最最花时间了！</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/01/2016%E6%AD%A6%E6%B1%89%E5%9B%BD%E5%AE%B6%E5%AE%89%E5%85%A8%E5%91%A8%E5%A4%A7%E8%B5%9BWriteup/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/02/Tensorflow-TFlearn/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/01/2016%E6%AD%A6%E6%B1%89%E5%9B%BD%E5%AE%B6%E5%AE%89%E5%85%A8%E5%91%A8%E5%A4%A7%E8%B5%9BWriteup/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/02/Tensorflow-TFlearn/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

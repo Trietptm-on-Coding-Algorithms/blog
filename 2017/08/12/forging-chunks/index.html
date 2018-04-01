@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-10 Forging chunks</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-10 Forging chunks</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-12">2017-08-12</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>在堆块被释放后, 堆块会被插入到一个bin链表中. 然而它的指针在程序中依旧是可用的. 如果攻击这控制了这个指针, 那么他/她便可以修改bin的链表结构并插入他/她自己构造的<code class="highlighter-rouge">伪造</code>堆块. 以下的示例程序展示了在fastbin的释放链表中如何实现这一攻击.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">forged_chunk</span> <span class="p">{</span>
+  <span class="kt">size_t</span> <span class="n">prev_size</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">forged_chunk</span> <span class="o">*</span><span class="n">fd</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">forged_chunk</span> <span class="o">*</span><span class="n">bck</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">10</span><span class="p">];</span>               <span class="c1">// padding
+</span><span class="p">};</span>
+
+<span class="c1">// First grab a fast chunk
+</span><span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>               <span class="c1">// 'a' points to 0x219c010
+</span>
+<span class="c1">// Create a forged chunk
+</span><span class="k">struct</span> <span class="n">forged_chunk</span> <span class="n">chunk</span><span class="p">;</span>    <span class="c1">// At address 0x7ffc6de96690
+</span><span class="n">chunk</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="mh">0x20</span><span class="p">;</span>            <span class="c1">// This size should fall in the same fastbin
+</span><span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">chunk</span><span class="p">.</span><span class="n">fd</span><span class="p">;</span>     <span class="c1">// Data starts here for an allocated chunk
+</span><span class="n">strcpy</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s">"attacker's data"</span><span class="p">);</span>
+
+<span class="c1">// Put the fast chunk back into fastbin
+</span><span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+<span class="c1">// Modify 'fd' pointer of 'a' to point to our forged chunk
+</span><span class="o">*</span><span class="p">((</span><span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="o">*</span><span class="p">)</span><span class="n">a</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span><span class="p">)</span><span class="o">&amp;</span><span class="n">chunk</span><span class="p">;</span>
+<span class="c1">// Remove 'a' from HEAD of fastbin
+// Our forged chunk will now be at the HEAD of fastbin
+</span><span class="n">malloc</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>                   <span class="c1">// Will return 0x219c010
+</span>
+<span class="n">victim</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>          <span class="c1">// Points to 0x7ffc6de966a0
+</span><span class="n">printf</span><span class="p">(</span><span class="s">"%s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">victim</span><span class="p">);</span>       <span class="c1">// Prints "attacker's data" !!
+</span></code></pre></div></div>
+
+<p>伪造堆块的size设置为0x20, 这一就可以通过安全检查”malloc(): memory corruption (fast)”, 这是用来检查堆块大小是否在特定fastbin的代销范围内. 同时要注意, 一块已分配的堆块, 它的存储数据起始于’fd’指针所在的地址. 这也就是为什么在上述程序中, <code class="highlighter-rouge">victim</code>指针指向了’伪造堆块’更前<code class="highlighter-rouge">0x10</code>(0x8+0x8)字节的位置处.</p>
+
+<p>fastbin的状态变化如下:</p>
+
+<ol>
+  <li>‘a’ freed.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; a -&gt; tail
+</code></pre></div>    </div>
+  </li>
+  <li>a’s fd pointer changed to point to ‘forged chunk’.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; a -&gt; forged chunk -&gt; undefined (fd of forged chunk will in fact be holding attacker's data)
+</code></pre></div>    </div>
+  </li>
+  <li>‘malloc’ request
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; forged chunk -&gt; undefined
+</code></pre></div>    </div>
+  </li>
+  <li>‘malloc’ request by victim
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; undefined   [ forged chunk is returned to the victim ]
+</code></pre></div>    </div>
+    <p>注意以下几点:</p>
+  </li>
+</ol>
+
+<ul>
+  <li>如果这里同一个bin链表再进行一次’malloc’申请fast chunk将导致段错误(segmentation fault)</li>
+  <li>尽管我们申请10字节大小并且设置伪造堆块的大小为32(0x20)bytes, 但是都在32bytes的fastbins堆块范围内.</li>
+  <li>换作small chunk和large chunk的攻击方法我们将在’House of Lore’见到</li>
+  <li>上述代码运行在64位机器上, 如果要在32位机器上运行, 请将<code class="highlighter-rouge">unsigned long long</code>换成<code class="highlighter-rouge">unisgned int</code>, 因为指针长度由8bytes变成了4bytes. 同样, 相比为伪造堆块使用32bytes, 这里用更小的17bytes左右也能奏效.</li>
+</ul>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/12/double-free/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/12/house-of-einherjar/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/12/double-free/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/12/house-of-einherjar/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

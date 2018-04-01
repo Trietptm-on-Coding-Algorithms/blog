@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>zbot变种木马wsnpoem脱壳笔记 part 2</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>zbot变种木马wsnpoem脱壳笔记 part 2</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-12-20">2017-12-20</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#crack" title="crack">crack</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#unpack" title="unpack">unpack</a>&nbsp;
+  
+  <a href="/tags/#malware" title="malware">malware</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文已发表在看雪论坛, 详情可见: <a href="https://bbs.pediy.com/thread-223401.htm">https://bbs.pediy.com/thread-223401.htm</a></p>
+</blockquote>
+
+<p>承接之前写的<a href="http://vancir.com/2017/12/19/wsnpoem-unack-one">zbot变种木马wsnpoem脱壳笔记 part 1</a>，我们这次用另外一种方式来脱壳。并且本文还将分析另外两个恶意样本。</p>
+
+<p>文中分析的程序你可以点击此处下载: <a href="http://od7mpc53s.bkt.clouddn.com/wsnpoem%E6%81%B6%E6%84%8F%E6%A0%B7%E6%9C%ACpart2.zip">wsnpoem恶意样本par2.zip</a>, 解压密码: www.pediy.com</p>
+
+<p>OD重载<code class="highlighter-rouge">wsnpoem-with-rootkit.exe</code>，依然是之前的顺序，在<code class="highlighter-rouge">leave</code>处设下硬件断点后运行，让第1阶段的解密完成。然后删除设下的硬件断点，向下翻看。</p>
+
+<p>不过这次我们就不会在<code class="highlighter-rouge">00409EDA</code>处的<code class="highlighter-rouge">jmp eax</code>下断了，我们再向下翻到<code class="highlighter-rouge">00409F26</code>处的<code class="highlighter-rouge">mov eax, 004051B7</code>，这句汇编代码下面是<code class="highlighter-rouge">call eax</code>，也就是说程序将要执行OEP处的代码。</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_293sajegk0nty8q.jpg" alt="1.png" /></p>
+
+<p>我们在<code class="highlighter-rouge">004051B7</code>设下硬件执行断点，然后执行断下，程序停在了OEP处，我们删除硬件断点</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_5yn8m5tplxxrslg.jpg" alt="2.png" /></p>
+
+<p>那么我们接下来的步骤就跟之前一样，运行步过<code class="highlighter-rouge">004051D2</code>处的<code class="highlighter-rouge">call 0040aad4</code>导入函数表，然后将EIP重设为<code class="highlighter-rouge">004051B7</code>。</p>
+
+<p>之前用Ollydump+ImportREC我们手动cut chunks来修复导入表，这样不仅枯燥费力，而且还有可能误删正确的chunks导致修复失败，这次我们使用额外一个工具 - <code class="highlighter-rouge">Universial Import Fixer 1.0[Final]</code>，也就是<code class="highlighter-rouge">UIF</code>。这个工具可以为我们自动修复导入表，我们只需要将wsnpoem的进程id输入进去就可以。</p>
+
+<p>在重设完EIP后，我们打开UIF，然后再通过在cmd里用<code class="highlighter-rouge">tasklist</code>命令查询到wsnpoem的pid，我的是<code class="highlighter-rouge">1816</code>，将其转为16进制，也就是<code class="highlighter-rouge">0x718</code>，填入到UIF的<code class="highlighter-rouge">Process ID</code>中，取消掉默认勾选的<code class="highlighter-rouge">Fix NtDll to Kernel32</code>，然后点击<code class="highlighter-rouge">Start UIF</code>就会帮你自动修复导入表并显示修复后的信息。这些信息我们等下用ImportREC是需要使用的，也就是下图的<code class="highlighter-rouge">IAT RVA</code>和<code class="highlighter-rouge">IAT Size</code></p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_btjtwvp8rp1y074.jpg" alt="3.png" /></p>
+
+<p>既然修复好了导入表，那么我们就可以用Ollydump将程序转储出来，记得在dump时要取消勾选<code class="highlighter-rouge">rebuild imports</code>，转储文件保存为dump.exe</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_ondh0kf79s01zyz.jpg" alt="4.png" /></p>
+
+<p>打开ImortREC，然后选择wsnpoem进程，输入OEP，并按照UIF修复给出的<code class="highlighter-rouge">IAT RVA</code>和<code class="highlighter-rouge">IAT Size</code>填入到ImportREC中</p>
+
+<p>你可以看到导入表直接就是可用的，我们不需要手动修复导入表。我们就可以直接转储到文件就行了。IDA打开当然也是脱壳完成并且各导入函数清晰的。</p>
+
+<p>当然，还是很麻烦，那有什么更好的方法吗.当然有，这里提供了一份ollydby的脚本，我们载入程序后运行脚本，就可以帮我们自动完成脱壳和修复导入表的步骤。</p>
+
+<p>我们重新载入程序，然后点击插件中的ODbgScript-&gt;Run Script … 然后选择<code class="highlighter-rouge">WSNPOEM-generic-unpacker.osc</code></p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_576893isl4bzdqu.jpg" alt="5.png" /></p>
+
+<p>一路向下点击过去，你也可以按下<code class="highlighter-rouge">Alt+L</code>来查看脚本脱壳过程的log</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_b4iib9nf9huxiks.jpg" alt="7.png" /></p>
+
+<p>脚本运行完成，显示ImportREC需要的信息</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_ncagp9fmcryzpkj.jpg" alt="8.png" /></p>
+
+<p>我们照之前的步骤将其填入到ImportREC, 转储到文件即可。</p>
+
+<p><img src="https://bbs.pediy.com/upload/attach/201712/722644_enq628tp3i6twmz.jpg" alt="9.png" /></p>
+
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/12/19/wsnpoem-unack-one/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/12/21/flareon4-3/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/12/19/wsnpoem-unack-one/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/12/21/flareon4-3/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

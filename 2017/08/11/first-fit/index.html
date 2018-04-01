@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-08 First Fit</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-08 First Fit</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-11">2017-08-11</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="first-fit-behavior">First-fit behavior</h2>
+
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>这项技术描述的是glibc分配器的’first-fit(优先匹配)’行为. 无论何时堆块(除开fast chunk)被释放, 都会加入到<code class="highlighter-rouge">unsorted bin</code>中, 插入到列表的<code class="highlighter-rouge">首部</code>. 当申请新堆块(再次申明,除开fast chunk), 在一开始会查找unsorted bins因为此时small bins还是空的. 查找操作从链表尾部进行, 如果unsorted bin中存在一个简单的堆块, 就不会进行精确的检查并且当堆块大小大于等于申请大小, 就会切成两半并返回. 也就确保了先进先出的行为.</p>
+
+<p>考虑以下示例代码:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">char</span> <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">300</span><span class="p">);</span>    <span class="c1">// 0x***010
+</span><span class="kt">char</span> <span class="o">*</span><span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">250</span><span class="p">);</span>    <span class="c1">// 0x***150
+</span>
+<span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+
+<span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">250</span><span class="p">);</span>          <span class="c1">// 0x***010
+</span></code></pre></div></div>
+
+<p>unsorted bin的变化状态如下:</p>
+
+<ol>
+  <li>‘a’ freed.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; a -&gt; tail
+</code></pre></div>    </div>
+  </li>
+  <li>‘malloc’ request.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; a2 -&gt; tail [ 'a1' is returned ]
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p>堆块’a’被切成两个堆块’a1’和’a2’, 这是因为所申请的大小(250 bytes)小于堆块’a’的大小(300 bytes). 这符合<code class="highlighter-rouge">_int_malloc</code>中的[6. iii.]</p>
+
+<p>在fast chunks情形下也是如此, 只是堆块释放后不会添加到<code class="highlighter-rouge">unsorted bin</code>中而是<code class="highlighter-rouge">fastbins</code>. 就如早先提及的那样, <code class="highlighter-rouge">fastbins</code>是一个单向链表并且堆块的插入删除操作都在链表<code class="highlighter-rouge">首部</code>进行, 这刚好跟获得堆块的顺序相反.</p>
+
+<p>考虑以下示例代码:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">char</span> <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>     <span class="c1">// 0xe4b010
+</span><span class="kt">char</span> <span class="o">*</span><span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>     <span class="c1">// 0xe4b030
+</span><span class="kt">char</span> <span class="o">*</span><span class="n">c</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>     <span class="c1">// 0xe4b050
+</span><span class="kt">char</span> <span class="o">*</span><span class="n">d</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>     <span class="c1">// 0xe4b070
+</span>
+<span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+<span class="n">free</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+<span class="n">free</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<span class="n">free</span><span class="p">(</span><span class="n">d</span><span class="p">);</span>
+
+<span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>           <span class="c1">// 0xe4b070
+</span><span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>           <span class="c1">// 0xe4b050
+</span><span class="n">c</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>           <span class="c1">// 0xe4b030
+</span><span class="n">d</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>           <span class="c1">// 0xe4b010
+</span></code></pre></div></div>
+
+<p>fastbin的状态变化如下:</p>
+
+<ol>
+  <li>‘a’ freed.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; a -&gt; tail
+</code></pre></div>    </div>
+  </li>
+  <li>‘b’ freed.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; b -&gt; a -&gt; tail
+</code></pre></div>    </div>
+  </li>
+  <li>‘c’ freed.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; c -&gt; b -&gt; a -&gt; tail
+</code></pre></div>    </div>
+  </li>
+  <li>‘d’ freed.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; d -&gt; c -&gt; b -&gt; a -&gt; tail
+</code></pre></div>    </div>
+  </li>
+  <li>‘malloc’ request.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; c -&gt; b -&gt; a -&gt; tail [ 'd' is returned ]
+</code></pre></div>    </div>
+  </li>
+  <li>‘malloc’ request.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; b -&gt; a -&gt; tail      [ 'c' is returned ]
+</code></pre></div>    </div>
+  </li>
+  <li>‘malloc’ request.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; a -&gt; tail           [ 'b' is returned ]
+</code></pre></div>    </div>
+  </li>
+  <li>‘malloc’ request.
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  &gt; head -&gt; tail                [ 'a' is returned ]
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p>The smaller size here (20 bytes) ensured that on freeing, chunks went into <code class="highlighter-rouge">fastbins</code> instead of the <code class="highlighter-rouge">unsorted</code> bin.</p>
+
+<p>我们使用了一个比较小的size(20 bytes)来确保堆块释放后会添加到<code class="highlighter-rouge">fastbins</code>中而非<code class="highlighter-rouge">unsorted bin</code></p>
+
+<h2 id="use-after-free-vulnerability">Use after Free Vulnerability</h2>
+
+<p>在上述例子中, 我们可以看到, malloc <em>可能</em> 会返回我们早先使用并释放掉的堆块. 这也就导致当使用已释放的内存堆块会造成漏洞. 一旦一个堆块被释放, 也就可以假定攻击者现在能控制堆块中的数据. 这块堆块不<strong>应该</strong>被再次使用, 相反我们应该经常申请新的堆块.</p>
+
+<p>看看示例的漏洞代码片段:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">char</span> <span class="o">*</span><span class="n">ch</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>
+
+<span class="c1">// Some operations
+//  ..
+//  ..
+</span>
+<span class="n">free</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span>
+
+<span class="c1">// Some operations
+//  ..
+//  ..
+</span>
+<span class="c1">// Attacker can control 'ch'
+// This is vulnerable code
+// Freed variables should not be used again
+</span><span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">ch</span><span class="o">==</span><span class="sc">'a'</span><span class="p">)</span> <span class="p">{</span>
+  <span class="c1">// do this
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/10/vimium/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/11/malloc-state/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/10/vimium/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/11/malloc-state/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

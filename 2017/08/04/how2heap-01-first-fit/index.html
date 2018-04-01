@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>how2heap-01 first fit实践笔记</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>how2heap-01 first fit实践笔记</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-04">2017-08-04</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对shellphish的<a href="https://github.com/shellphish/how2heap">how2heap</a>系列堆漏洞课程的实践笔记</p>
+</blockquote>
+
+<h2 id="示例源码">示例源码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"This file doesn't demonstrate an attack, but shows the nature of glibc's allocator.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"glibc uses a first-fit algorithm to select a free chunk.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"If a chunk is free and large enough, malloc will select this chunk.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"This can be exploited in a use-after-free situation.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Allocating 2 buffers. They can be large, don't have to be fastbin.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="kt">char</span><span class="o">*</span> <span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">512</span><span class="p">);</span>
+	<span class="kt">char</span><span class="o">*</span> <span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">256</span><span class="p">);</span>
+	<span class="kt">char</span><span class="o">*</span> <span class="n">c</span><span class="p">;</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"1st malloc(512): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"2nd malloc(256): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"we could continue mallocing here...</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"now let's put a string at a that we can read later </span><span class="se">\"</span><span class="s">this is A!</span><span class="se">\"\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">strcpy</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s">"this is A!"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"first allocation %p points to %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Freeing the first one...</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"We don't need to free anything again. As long as we allocate less than 512, it will end up at %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"So, let's allocate 500 bytes</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">c</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">500</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"3rd malloc(500): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">c</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"And put a different string here, </span><span class="se">\"</span><span class="s">this is C!</span><span class="se">\"\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">strcpy</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="s">"this is C!"</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"3rd allocation %p points to %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">c</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"first allocation %p points to %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"If we reuse the first allocation, it now holds the data from the third allocation."</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>程序首先为<code class="highlighter-rouge">a</code>和<code class="highlighter-rouge">b</code>分别申请了<code class="highlighter-rouge">512bytes</code>和<code class="highlighter-rouge">256bytes</code>的空间，随后将字符串<code class="highlighter-rouge">"this is A!"</code>对空间<code class="highlighter-rouge">a</code>进行标记后将<code class="highlighter-rouge">a</code>释放，释放完<code class="highlighter-rouge">a</code>后又继续为<code class="highlighter-rouge">c</code>申请了<code class="highlighter-rouge">500bytes</code>的空间并将<code class="highlighter-rouge">"this is C!"</code>对<code class="highlighter-rouge">c</code>进行标记，最后将<code class="highlighter-rouge">a</code>和<code class="highlighter-rouge">c</code>的空间以及存储的字符串都打印出来。</p>
+
+<p>接下来我们运行程序，看看结果如何，首先我们打印出<code class="highlighter-rouge">a</code>和<code class="highlighter-rouge">b</code>的地址</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="mi">1</span><span class="n">st</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">512</span><span class="p">)</span><span class="o">:</span> <span class="mh">0x602000</span>
+<span class="mi">2</span><span class="n">nd</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span><span class="o">:</span> <span class="mh">0x602210</span>
+</code></pre></div></div>
+
+<p>这里我们会问，为什么我明明申请的<code class="highlighter-rouge">chunk</code>大小为<code class="highlighter-rouge">0x200</code>和<code class="highlighter-rouge">0x100</code>，可是从两个<code class="highlighter-rouge">chunk</code>之间的地址来看，第二个<code class="highlighter-rouge">chunk</code>的地址不应该是<code class="highlighter-rouge">0x602200</code>吗？多出来的<code class="highlighter-rouge">0x10</code>是什么呢？</p>
+
+<p>其实这需要了解关于chunk的数据结构，我们在申请空间的时候，操作系统会给我们分配一个chunk，并返回给我们chunk的数据区的地址用作指针，但其实在chunk的数据区前，还有大小为<code class="highlighter-rouge">0x10</code>的chunk头信息，用于堆内存管理，因此我们会发现两者之间不单纯只是数据区而已～</p>
+
+<p>我们这里也可以尝试用<code class="highlighter-rouge">libheap</code>来打印看看我们的堆空间</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>heapls
+           ADDR             SIZE            STATUS
+sbrk_base  0x602000
+chunk      0x602000         0x210           <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602210         0x110           <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602320         0x20ce0         <span class="o">(</span>top<span class="o">)</span>
+sbrk_end   0x602000
+</code></pre></div></div>
+
+<p>接下来我们继续执行，直到<code class="highlighter-rouge">free(a)</code></p>
+
+<p>我们这时来看看堆的情况</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>heapls
+           ADDR             SIZE            STATUS
+sbrk_base  0x602000
+chunk      0x602000         0x210           <span class="o">(</span>F<span class="o">)</span> FD 0x7ffff7dd37b8 BK 0x7ffff7dd37b8 <span class="o">(</span>LC<span class="o">)</span>
+chunk      0x602210         0x110           <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602320         0x20ce0         <span class="o">(</span>top<span class="o">)</span>
+sbrk_end   0x602000
+</code></pre></div></div>
+
+<p>可以看见，第一个chunk的状态从inuse转变为freed，并且<code class="highlighter-rouge">libheap</code>帮我们打印出了<code class="highlighter-rouge">FD</code>和<code class="highlighter-rouge">BK</code>的值，这对我们分析很有帮助</p>
+
+<p>接下来我们使用<code class="highlighter-rouge">freebins</code>来看看我们的chunk目前被收进了哪个bin中</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>freebins
+
+unsorted bin @ 0x7ffff7dd37c8
+	free chunk @ 0x602000 - size 0x210
+</code></pre></div></div>
+
+<p>对于unsorted bin而言，无论多大的chunk都是可以被收进其中的，但是在过段时间后，glibc便会将其收录到其他的bin中，也可以说是一个暂住区</p>
+
+<p>接下来继续执行，会对c申请一块空间，我们继续查看堆内存信息</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>heapls
+           ADDR             SIZE            STATUS
+sbrk_base  0x602000
+chunk      0x602000         0x210           <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602210         0x110           <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602320         0x20ce0         <span class="o">(</span>top<span class="o">)</span>
+sbrk_end   0x602000
+gdb-peda<span class="nv">$ </span>freebins
+
+
+</code></pre></div></div>
+
+<p>我们的第一个chunk的状态又变为了inuse状态，这说明了我们这个原先属于a并且被释放的chunk又被分配给了c，而<code class="highlighter-rouge">freebins</code>中也变得空空如也。那么继续执行，看最后<code class="highlighter-rouge">a</code>和<code class="highlighter-rouge">c</code>的地址如何</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>3rd allocation 0x602010 points to this is C!
+first allocation 0x602010 points to this is C!
+</code></pre></div></div>
+
+<p>结果表明，<code class="highlighter-rouge">a</code>和<code class="highlighter-rouge">c</code>同时指向了同一块区域。那么我们可以得到结论</p>
+
+<blockquote>
+  <p>当释放一块内存后再申请一块大小相近(略小于)的空间，那么glibc倾向于将先前被释放的空间分配回来</p>
+</blockquote>
+
+<p>最后，我们用<code class="highlighter-rouge">villoc</code>来更形象地看下这整个过程的内存情况吧</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/how2heap-first_fit.png" alt="first_fit" /></p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/03/ret2text%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/04/ret2__libc_csu_init%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BD%BF%E7%94%A8%E9%80%9A%E7%94%A8gadget/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/03/ret2text%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/04/ret2__libc_csu_init%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BD%BF%E7%94%A8%E9%80%9A%E7%94%A8gadget/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

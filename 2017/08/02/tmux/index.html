@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>tmux配置及体验</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>tmux配置及体验</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-02">2017-08-02</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#installation" title="installation">installation</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#tool" title="tool">tool</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="为什么需要tmux">为什么需要tmux</h2>
+
+<p>因为在ubuntu环境下常常需要打开多个终端，而使用Alt+Tab键切换时你会发现所有的gnome-terminal都被折叠在了一起，如果需要切换到某个特定的terminal，就需要按很多次tab键，稍有不慎切过去了，又得重新来过。用鼠标点击移来移去很烦，而用tab键时也会因为鼠标而切换失败。</p>
+
+<p>terminal有一个标签页可以切换，使用Ctrl+Shift+T可以新建一个tab，而使用Ctrl+Shift+W则可以关闭当前tab页，使用Ctrl+PageDown切换到下一个tab页。其实使用起来也还方便。但也同样存在类似的缺陷。</p>
+
+<p>于是我开始尝试使用ubuntu的一个终端分屏工具 tmux</p>
+
+<h2 id="tmux安装及配置">tmux安装及配置</h2>
+
+<p>安装tmux很方便，只需要一行命令即可完成安装</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>aptitude install tmux
+</code></pre></div></div>
+
+<p>tmux的快捷键都有一个前缀，一般默认是Ctrl+b，而且这里一个坑点就是所有的快捷组合键都是先按下Ctrl+b松开后再按其他键，这样才能生效。我一开始是同时全部按下，快捷键都无法使用，也是很郁闷。</p>
+
+<p>在使用的时候我们可以将前缀设为Ctrl+a，这样手指就不会很难受。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#修改～/.tmux.conf文件添加我们的配置，该文件可能需要你新建</span>
+gedit ~/.tmux.conf
+</code></pre></div></div>
+<p>在～/.tmux.conf中如下编辑</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">set</span> <span class="nt">-g</span> prefix C-a
+unbind C-b
+</code></pre></div></div>
+
+<p>第一行命令是将前缀设置为Ctrl+a，而第二行命令是将原先的前缀解绑</p>
+
+<p>在之后我们需要进入一个tmux会话里，当然是需要你先新建的。</p>
+
+<p>新建命令</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>tmux new <span class="nt">-s</span> session-name
+</code></pre></div></div>
+<p>进入这个终端后，先按Ctrl+b后输入”:”进入命令行模式，再敲入命令</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>source-file ~/.tmux.conf
+</code></pre></div></div>
+<p>就可以成功就前缀更新为Ctrl+a了。因为这里更换了前缀键，所以以下的基本命令也都是基于这个Ctrl+a敲下的。如果你没有更改你的前缀的话，在输入命令时就要注意仍然是Ctrl+b了。</p>
+
+<h2 id="出错的解决方案">出错的解决方案</h2>
+
+<p>我在刚刚安装好tmux后，尝试新建一个session，但是会出现错误提示，提示信息如下</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sessions should be nested with care, <span class="nb">unset</span> <span class="nv">$TMUX</span> to force
+</code></pre></div></div>
+
+<p>解决方案如下：在terminal中执行以下命令即可</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">unset </span>TMUX
+</code></pre></div></div>
+
+<h2 id="tmux基本命令">tmux基本命令</h2>
+
+<p>以下将简单介绍几个常用的命令</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#显示可用的会话</span>
+tmux <span class="nb">ls</span>
+<span class="c">#当然你也可以在进入tmux后按下Ctrl+a（前缀键）再按下s，上下键切换会话</span>
+
+<span class="c">#新建一个会话，建议取名要有意义，方便切换</span>
+tmux new <span class="nt">-s</span> &lt;name-of-my-session&gt;
+<span class="c">#在后台建立会话</span>
+tmux new <span class="nt">-s</span> &lt;name-of-my-session&gt; <span class="nt">-d</span>
+
+<span class="c">#接入第一个可用的会话</span>
+tmux a
+<span class="c">#其实等效于tmux attach</span>
+
+<span class="c">#接入一个指定名的会话</span>
+tmux a <span class="nt">-t</span> session-name
+
+<span class="c">#从会话中断开</span>
+tmux detach
+<span class="c">#当然也可用组合键Ctrl+a（前缀）后按d断开会话</span>
+
+<span class="c">#关闭会话</span>
+tmux kill-session <span class="nt">-t</span> session-name
+
+<span class="c">#窗格分屏</span>
+Ctrl-a % <span class="c">#分成两竖屏</span>
+Ctrl-b % <span class="c">#分成两横屏</span>
+<span class="c">#在窗格键移动只需要使用组合键Ctrl+a后按下上下左右的方向键即可切换</span>
+
+</code></pre></div></div>
+<h2 id="补充">补充</h2>
+
+<p>tmux配合zsh，如果将tmux的按键修改成vim模式的话，终端的体验是很棒的。但是我也是刚刚接触tmux，因此给出的可供学习的命令也不多。所以未来会继续补充相应的命令进行完善。</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/02/Tensorflow-TFlearn/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BB%85%E6%9C%89system()%E6%83%85%E5%86%B5%E4%B8%8B%E8%BE%93%E5%85%A5binsh%E5%AE%8C%E6%88%90%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/02/Tensorflow-TFlearn/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BB%85%E6%9C%89system()%E6%83%85%E5%86%B5%E4%B8%8B%E8%BE%93%E5%85%A5binsh%E5%AE%8C%E6%88%90%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-04 Bins and Chunks</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-04 Bins and Chunks</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-09">2017-08-09</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="bins-and-chunks">Bins and Chunks</h2>
+
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>bin是一个由空闲(未分配)堆块组成的(双向或单向)链表。Bins根据所包含的区块大小进行区分：</p>
+
+<ol>
+  <li>Fast bin</li>
+  <li>Unsorted bin</li>
+  <li>Small bin</li>
+  <li>Large bin</li>
+</ol>
+
+<p>Fast bins 使用一个包含各堆块指针的数组进行链接。</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">malloc_chunk</span> <span class="o">*</span><span class="n">mfastbinptr</span><span class="p">;</span>
+
+<span class="n">mfastbinptr</span> <span class="n">fastbinsY</span><span class="p">[];</span> <span class="c1">// Array of pointers to chunks
+</span></code></pre></div></div>
+
+<p>Unsorted, small 和 large bins 同样使用一个简单数组进行链接</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">malloc_chunk</span><span class="o">*</span> <span class="n">mchunkptr</span><span class="p">;</span>
+
+<span class="n">mchunkptr</span> <span class="n">bins</span><span class="p">[];</span> <span class="c1">// Array of pointers to chunks
+</span></code></pre></div></div>
+
+<p>在一开始的初始化过程中， small bins 和 large bins 都是空的</p>
+
+<p>每一个bin在数组中都有两个值进行表示，一个是指向链表头(HEAD)的指针，另一个指向链表尾(TAIL)。而对于 fastbins (单向链表)，第二个指向链表尾(TAIL)的指针为空</p>
+
+<h2 id="fast-bins">Fast bins</h2>
+
+<p>fastbins 划分为10个，其中每一个bins都是一个单向链表，并在链表首部进行插入和删除操作(先进后出)</p>
+
+<p>每一个bins都包含着许多大小相同的堆块，这10个bins各自的堆块大小为：16, 24, 32, 40, 48, 56, 64, 72, 80 以及 88。这里所提及的大小是包括堆块的元数据的。存储堆块时可以节省4字节的空间(在指针长度为4字节的平台上)。因为对于已分配的堆块，<code class="highlighter-rouge">prev_size</code>和<code class="highlighter-rouge">size</code>作为元数据，而下一个相邻的堆块的<code class="highlighter-rouge">prev_size</code>则会用于存储用户数据。</p>
+
+<p>相邻的两个空闲的 fast chunk 不会被合并</p>
+
+<h2 id="unsorted-bin">Unsorted bin</h2>
+
+<p>仅有1个unsorted bin，small bin和large bin被释放后会加入到unsorted bin中。unsorted bin最初的意图是作为一个缓存层来加速堆块的分配和释放。</p>
+
+<h2 id="small-bins">Small bins</h2>
+
+<p>一共有62个small bins，small bins在分配上比large bins更快但慢于fastbins。每一个bins都是一个双向链表，在链表首部(HEAD)进行插入操作，在链表尾部(TAIL)进行删除操作(后进后出)</p>
+
+<p>与fastbins类似，每一个bin都有着许多大小相同的堆块，这62个堆块的大小分别为：16, 24, … , 504字节</p>
+
+<p>当堆块被释放，small chunks会在链入unsorted bins前进行合并</p>
+
+<h2 id="large-bins">Large bins</h2>
+
+<p>一共有63个large bins，每一个bin都是一个双向链表，每一个large bin都有着不同的大小，以递减的顺序排列(比如，最大的堆块位于链表首部(HEAD),而最小的堆块在链表尾部(TAIL))。插入和删除操作都可以在链表的任意一个位置进行。</p>
+
+<p>前32个bins包括的堆块都以64字节大小间隔</p>
+
+<p>1st bin: 512 - 568 bytes
+2nd bin: 576 - 632 bytes
+.
+.</p>
+
+<p>总结一下就是如下这样</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>No. of Bins       Spacing between bins
+
+64 bins of size       8  [ Small bins]
+32 bins of size      64  [ Large bins]
+16 bins of size     512  [ Large bins]
+8 bins of size     4096  [ ..        ]
+4 bins of size    32768
+2 bins of size   262144
+1 bin  of size what's left
+</code></pre></div></div>
+
+<p>和small chunks类似，当被释放时，large chunks会在链入unsorted bins之前进行合并</p>
+
+<p>除上述介绍之外，还有两种特殊的堆块不属于任何一种bins中</p>
+
+<h2 id="top-chunk">Top chunk</h2>
+
+<p>Top chunk是位于arena最顶端的堆块，用于malloc申请内存的最后途径，如果malloc需要更大的内存而 top chunk无法满足的话，那么top chunk就会通过使用 <code class="highlighter-rouge">sbrk</code>系统调用而变大来满足需求。Top chunk的<code class="highlighter-rouge">PREV_INUSE</code>标志总是被设置为1.</p>
+
+<h2 id="last-remainder-chunk">Last remainder chunk</h2>
+
+<p>这是指那些分割后剩余的堆块。有时一个确定大小的堆块不可得时，会通过分割一个更大的堆块成两块来解决这个问题，其中一个返回给用户，而另一块就会成为last remainder chunk</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/07/%E5%85%B3%E4%BA%8EC%E6%8C%87%E9%92%88%E7%9A%84%E5%90%84%E7%A7%8D%E7%94%A8%E6%B3%95%E7%9A%84%E5%85%B7%E4%BD%93%E5%80%BC%E5%88%86%E6%9E%90/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/09/Heap-memory/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/07/%E5%85%B3%E4%BA%8EC%E6%8C%87%E9%92%88%E7%9A%84%E5%90%84%E7%A7%8D%E7%94%A8%E6%B3%95%E7%9A%84%E5%85%B7%E4%BD%93%E5%80%BC%E5%88%86%E6%9E%90/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/09/Heap-memory/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

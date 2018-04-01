@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>how2heap-02 fastbin-dup实践笔记</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>how2heap-02 fastbin-dup实践笔记</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-05">2017-08-05</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对shellphish的<a href="https://github.com/shellphish/how2heap">how2heap</a>系列堆漏洞课程的实践笔记</p>
+</blockquote>
+
+<h2 id="示例源码">示例源码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"This file demonstrates a simple double-free attack with fastbins.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Allocating 3 buffers.</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="kt">int</span> <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+	<span class="kt">int</span> <span class="o">*</span><span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+	<span class="kt">int</span> <span class="o">*</span><span class="n">c</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+  <span class="cm">/* [1] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"1st malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"2nd malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"3rd malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">c</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Freeing the first one...</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+  <span class="cm">/* [2] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"If we free %p again, things will crash because %p is at the top of the free list.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="c1">// free(a);
+</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"So, instead, we'll free %p.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+  <span class="cm">/* [3] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now, we can free %p again, since it's not the head of the free list.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+  <span class="cm">/* [4] */</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"Now the free list has [ %p, %p, %p ]. If we malloc 3 times, we'll get %p twice!</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"1st malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">));</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"2nd malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">));</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">"3rd malloc(8): %p</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">malloc</span><span class="p">(</span><span class="mi">8</span><span class="p">));</span>
+  <span class="cm">/* [5] */</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>程序首先向操作系统申请了3块大小为<code class="highlighter-rouge">8bytes</code>的内存，而后依次释放 <code class="highlighter-rouge">a</code> <code class="highlighter-rouge">b</code> <code class="highlighter-rouge">a</code>，再重新申请了3块大小依旧为<code class="highlighter-rouge">8bytes</code>的内存。我们通过巧妙地欺骗glibc的<code class="highlighter-rouge">free</code>操作从而可以泄露出一块已经被分配的内存指针</p>
+
+<p>我们接下来用gdb来进行调试来看看具体的内存情况，首先我们执行到上面源码的<code class="highlighter-rouge">[1]</code>处，程序申请了3块内存，这时来看看堆的情况</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>heapls
+           ADDR             SIZE            STATUS
+sbrk_base  0x602000
+chunk      0x602000         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602020         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602040         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602060         0x20fa0         <span class="o">(</span>top<span class="o">)</span>
+sbrk_end   0x602000
+</code></pre></div></div>
+
+<p>可以看见，操作系统给我们分配了3个chunk，继续向下到<code class="highlighter-rouge">[2]</code>处，这时将chunk <code class="highlighter-rouge">a</code>释放</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>heapls
+           ADDR             SIZE            STATUS
+sbrk_base  0x602000
+chunk      0x602000         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602020         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602040         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602060         0x20fa0         <span class="o">(</span>top<span class="o">)</span>
+sbrk_end   0x602000
+</code></pre></div></div>
+
+<p>这时敲入<code class="highlighter-rouge">heapls</code>命令查看堆情况，但是却发现第一个chunk的状态依旧是<code class="highlighter-rouge">inuse</code>？为什么明明被释放了，状态却依旧没变呢？因为这是因为chunk的大小为<code class="highlighter-rouge">8bytes</code>，chunk <code class="highlighter-rouge">a</code>虽然被释放，但是被链入了<code class="highlighter-rouge">fastbins</code>里，而<code class="highlighter-rouge">fastbins</code>为了快速释放分配，并不会修改每个<code class="highlighter-rouge">chunk</code>的<code class="highlighter-rouge">PREV_INUSE (P)</code>，简称<code class="highlighter-rouge">P位</code>，因此我们看到的就是chunk <code class="highlighter-rouge">a</code>依旧是<code class="highlighter-rouge">inuse</code>的状态</p>
+
+<p>我们可以敲入<code class="highlighter-rouge">freebins</code>和<code class="highlighter-rouge">fastbins</code>进行验证</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>freebins
+fast bin 0 @ 0x602000
+	free chunk @ 0x602000 - size 0x20
+gdb-peda<span class="nv">$ </span>fastbins
+fastbins
+<span class="o">[</span> fb 0 <span class="o">]</span> 0x7ffff7dd3768  -&gt; <span class="o">[</span> 0x602000 <span class="o">]</span> <span class="o">(</span>32<span class="o">)</span>
+<span class="o">[</span> fb 1 <span class="o">]</span> 0x7ffff7dd3770  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 2 <span class="o">]</span> 0x7ffff7dd3778  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 3 <span class="o">]</span> 0x7ffff7dd3780  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 4 <span class="o">]</span> 0x7ffff7dd3788  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 5 <span class="o">]</span> 0x7ffff7dd3790  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 6 <span class="o">]</span> 0x7ffff7dd3798  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 7 <span class="o">]</span> 0x7ffff7dd37a0  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 8 <span class="o">]</span> 0x7ffff7dd37a8  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 9 <span class="o">]</span> 0x7ffff7dd37b0  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+</code></pre></div></div>
+
+<p>那么我们继续运行，到<code class="highlighter-rouge">[3]</code>的位置，这是将chunk <code class="highlighter-rouge">b</code>释放掉了，继续查看堆情况</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>heapls
+           ADDR             SIZE            STATUS
+sbrk_base  0x602000
+chunk      0x602000         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602020         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602040         0x20            <span class="o">(</span>inuse<span class="o">)</span>
+chunk      0x602060         0x20fa0         <span class="o">(</span>top<span class="o">)</span>
+sbrk_end   0x602000
+gdb-peda<span class="nv">$ </span>fastbins
+fastbins
+<span class="o">[</span> fb 0 <span class="o">]</span> 0x7ffff7dd3768  -&gt; <span class="o">[</span> 0x602020 <span class="o">]</span> <span class="o">(</span>32<span class="o">)</span>
+                            <span class="o">[</span> 0x602000 <span class="o">]</span> <span class="o">(</span>32<span class="o">)</span>
+<span class="o">[</span> fb 1 <span class="o">]</span> 0x7ffff7dd3770  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 2 <span class="o">]</span> 0x7ffff7dd3778  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 3 <span class="o">]</span> 0x7ffff7dd3780  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 4 <span class="o">]</span> 0x7ffff7dd3788  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 5 <span class="o">]</span> 0x7ffff7dd3790  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 6 <span class="o">]</span> 0x7ffff7dd3798  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 7 <span class="o">]</span> 0x7ffff7dd37a0  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 8 <span class="o">]</span> 0x7ffff7dd37a8  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+<span class="o">[</span> fb 9 <span class="o">]</span> 0x7ffff7dd37b0  -&gt; <span class="o">[</span> 0x0 <span class="o">]</span>
+gdb-peda<span class="nv">$ </span>freebins
+fast bin 0 @ 0x602020
+	free chunk @ 0x602020 - size 0x20
+	free chunk @ 0x602000 - size 0x20
+</code></pre></div></div>
+
+<p>我们可以发现，<code class="highlighter-rouge">free(b)</code>之后，chunk <code class="highlighter-rouge">b</code>被链入了<code class="highlighter-rouge">fastbins</code>中，但是chunk <code class="highlighter-rouge">b</code>被链进了<code class="highlighter-rouge">a</code>的前面，我们继续向下，到<code class="highlighter-rouge">[4]</code>处，再次将<code class="highlighter-rouge">a</code>释放，这时我们再选择打印<code class="highlighter-rouge">freebins</code>和<code class="highlighter-rouge">fastbins</code>会发现，一直在输出chunk <code class="highlighter-rouge">a</code>和chunk <code class="highlighter-rouge">b</code>，意思就是在<code class="highlighter-rouge">freebins</code>和<code class="highlighter-rouge">fastbins</code>中，chunk <code class="highlighter-rouge">a</code>和chunk <code class="highlighter-rouge">b</code>形成了一个循环</p>
+
+<p>这是因为再次<code class="highlighter-rouge">free(a)</code>后，glibc重新将chunk <code class="highlighter-rouge">a</code>链入<code class="highlighter-rouge">fastbins</code>中并且位于chunk <code class="highlighter-rouge">b</code>之上，也就意味着形成了<code class="highlighter-rouge">[0x602000] -&gt; [0x602020] -&gt; [0x602000]</code>这样的循环</p>
+
+<p>这时我们向下执行到<code class="highlighter-rouge">[5]</code>处，这时我们申请了3块内存</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1st malloc<span class="o">(</span>8<span class="o">)</span>: 0x602010
+2nd malloc<span class="o">(</span>8<span class="o">)</span>: 0x602030
+3rd malloc<span class="o">(</span>8<span class="o">)</span>: 0x602010
+</code></pre></div></div>
+
+<p>我们看到，<code class="highlighter-rouge">fastbins</code>中最先将新加入的chunk <code class="highlighter-rouge">a</code>分配给用户，也即是<code class="highlighter-rouge">[0x602000] -&gt; [0x602020] -&gt; [0x602000]</code>的第一个<code class="highlighter-rouge">[0x602000]</code>
+之后再申请相同空间，分配掉了加入的chunk <code class="highlighter-rouge">b</code>给用户，也就是<code class="highlighter-rouge">[0x602000] -&gt; [0x602020] -&gt; [0x602000]</code>中的第二个<code class="highlighter-rouge">[0x602020]</code>
+最后第三次申请，分配回我们最先free掉的chunk <code class="highlighter-rouge">a</code>，也就是<code class="highlighter-rouge">[0x602000] -&gt; [0x602020] -&gt; [0x602000]</code>中第三个<code class="highlighter-rouge">[0x602000]</code></p>
+
+<p>那么我们可以得到结论</p>
+
+<blockquote>
+  <p>对于fastbins，我们通过double free泄露出一个堆块的指针</p>
+</blockquote>
+
+<p><img src="http://od7mpc53s.bkt.clouddn.com/how2heap-fastbin_dup.png" alt="fastbin-dup" /></p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/04/stack-privot-%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/06/how2heap-03-fastbin-dup-into-stack/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/04/stack-privot-%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/06/how2heap-03-fastbin-dup-into-stack/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

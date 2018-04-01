@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>pyc文件结构</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>pyc文件结构</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2018-01-21">2018-01-21</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#python" title="python">python</a>&nbsp;
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#RE" title="RE">RE</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>原文链接: <a href="https://nedbatchelder.com/blog/200804/the_structure_of_pyc_files.html">The structure of .pyc files</a></p>
+</blockquote>
+
+<p>简单来说, 一个pyc文件包含以下三块</p>
+<ul>
+  <li>一个4字节的魔数(magic number)</li>
+  <li>一个4直接的修改时间戳(modification timestamp)</li>
+  <li>一个编排过的代码对象</li>
+</ul>
+
+<p>对于各个版本的python解释器, magic number都各不相同, 对于python 2.5则是<code class="highlighter-rouge">b3f20d0a</code></p>
+
+<p>修改时间戳则是源文件生成.pyc文件的Unix修改时间戳, 当源文件改变的时候, 该值也会变化</p>
+
+<p>整个文件剩下的部分则是在编译源文件产生的代码对象编排后的输出. marshal跟python的pickle类似, 它对python对象进行序列化操作. 不过marshal和pickle的目标不同. pickle目的在于产生一个持久的独立于版本的序列化, 而marshal则是为了短暂地序列化对象, 因此它的表示会随着python版本二改变.</p>
+
+<p>而且, pickle被设计用于适用用户定义的类型, 而marshal这时用于处理python内部类型的复杂结构</p>
+
+<p>marshal的特性给出了pyc文件的重要特征: 它对平台独立, 但依赖于python版本. 一个2.4版本的pyc文件不能在2.5版本下执行, 但是它可以很好地移植到不同操作系统里.</p>
+
+<p>接下来的部分也简单: 对于两个长整数和一个marshalled的代码对象, 复杂点在于代码对象的结构. 它们包含有编译器禅师的各种信息, 其中内容最丰富的这是字节码本身.</p>
+
+<p>所幸有了marshal和dis模块, 编写程序导出这些信息并不会很难.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">dis</span><span class="p">,</span> <span class="n">marshal</span><span class="p">,</span> <span class="n">struct</span><span class="p">,</span> <span class="n">sys</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">types</span>
+
+<span class="k">def</span> <span class="nf">show_file</span><span class="p">(</span><span class="n">fname</span><span class="p">):</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="s">"rb"</span><span class="p">)</span>
+    <span class="n">magic</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">moddate</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">modtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">asctime</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">localtime</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s">'L'</span><span class="p">,</span> <span class="n">moddate</span><span class="p">)[</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="k">print</span> <span class="s">"magic </span><span class="si">%</span><span class="s">s"</span> <span class="o">%</span> <span class="p">(</span><span class="n">magic</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">'hex'</span><span class="p">))</span>
+    <span class="k">print</span> <span class="s">"moddate </span><span class="si">%</span><span class="s">s (</span><span class="si">%</span><span class="s">s)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">moddate</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">'hex'</span><span class="p">),</span> <span class="n">modtime</span><span class="p">)</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">marshal</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">show_code</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+     
+<span class="k">def</span> <span class="nf">show_code</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="s">''</span><span class="p">):</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">scode"</span> <span class="o">%</span> <span class="n">indent</span>
+    <span class="n">indent</span> <span class="o">+=</span> <span class="s">'   '</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sargcount </span><span class="si">%</span><span class="s">d"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_argcount</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">snlocals </span><span class="si">%</span><span class="s">d"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_nlocals</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sstacksize </span><span class="si">%</span><span class="s">d"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_stacksize</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sflags </span><span class="si">%04</span><span class="s">x"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_flags</span><span class="p">)</span>
+    <span class="n">show_hex</span><span class="p">(</span><span class="s">"code"</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_code</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="n">indent</span><span class="p">)</span>
+    <span class="n">dis</span><span class="o">.</span><span class="n">disassemble</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sconsts"</span> <span class="o">%</span> <span class="n">indent</span>
+    <span class="k">for</span> <span class="n">const</span> <span class="ow">in</span> <span class="n">code</span><span class="o">.</span><span class="n">co_consts</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">const</span><span class="p">)</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">CodeType</span><span class="p">:</span>
+            <span class="n">show_code</span><span class="p">(</span><span class="n">const</span><span class="p">,</span> <span class="n">indent</span><span class="o">+</span><span class="s">'   '</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">"   </span><span class="si">%</span><span class="s">s</span><span class="si">%</span><span class="s">r"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">const</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">snames </span><span class="si">%</span><span class="s">r"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_names</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">svarnames </span><span class="si">%</span><span class="s">r"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sfreevars </span><span class="si">%</span><span class="s">r"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_freevars</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">scellvars </span><span class="si">%</span><span class="s">r"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_cellvars</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sfilename </span><span class="si">%</span><span class="s">r"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_filename</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sname </span><span class="si">%</span><span class="s">r"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_name</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">sfirstlineno </span><span class="si">%</span><span class="s">d"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_firstlineno</span><span class="p">)</span>
+    <span class="n">show_hex</span><span class="p">(</span><span class="s">"lnotab"</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">co_lnotab</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="n">indent</span><span class="p">)</span>
+     
+<span class="k">def</span> <span class="nf">show_hex</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">indent</span><span class="p">):</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">'hex'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">60</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">s</span><span class="si">%</span><span class="s">s </span><span class="si">%</span><span class="s">s"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">s</span><span class="si">%</span><span class="s">s"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">h</span><span class="p">),</span> <span class="mi">60</span><span class="p">):</span>
+            <span class="k">print</span> <span class="s">"</span><span class="si">%</span><span class="s">s   </span><span class="si">%</span><span class="s">s"</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">h</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">60</span><span class="p">])</span>
+
+<span class="n">show_file</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>我们使用这段代码, 来处理一个极简单的python文件生成的pyc文件:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span>
+<span class="k">if</span> <span class="n">a</span> <span class="ow">or</span> <span class="n">b</span><span class="p">:</span>
+    <span class="k">print</span> <span class="s">"Hello"</span><span class="p">,</span> <span class="n">a</span>
+</code></pre></div></div>
+
+<p>产生的结果如下:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>magic b3f20d0a
+moddate 8a9efc47 (Wed Apr 09 06:46:34 2008)
+code
+   argcount 0
+   nlocals 0
+   stacksize 2
+   flags 0040
+   code
+      6404005c02005a00005a0100650000700700016501006f0d000164020047
+      65000047486e01000164030053
+  1           0 LOAD_CONST               4 ((1, 0))
+              3 UNPACK_SEQUENCE          2
+              6 STORE_NAME               0 (a)
+              9 STORE_NAME               1 (b)
+
+  2          12 LOAD_NAME                0 (a)
+             15 JUMP_IF_TRUE             7 (to 25)
+             18 POP_TOP
+             19 LOAD_NAME                1 (b)
+             22 JUMP_IF_FALSE           13 (to 38)
+        &gt;&gt;   25 POP_TOP
+
+  3          26 LOAD_CONST               2 ('Hello')
+             29 PRINT_ITEM
+             30 LOAD_NAME                0 (a)
+             33 PRINT_ITEM
+             34 PRINT_NEWLINE
+             35 JUMP_FORWARD             1 (to 39)
+        &gt;&gt;   38 POP_TOP
+        &gt;&gt;   39 LOAD_CONST               3 (None)
+             42 RETURN_VALUE
+   consts
+      1
+      0
+      'Hello'
+      None
+      (1, 0)
+   names ('a', 'b')
+   varnames ()
+   freevars ()
+   cellvars ()
+   filename 'C:\\ned\\sample.py'
+   name '&lt;module&gt;'
+   firstlineno 1
+   lnotab 0c010e01
+</code></pre></div></div>
+
+<p>有很多内容我们都不明白, 但是字节码却很好地被反汇编并呈现了出来. python虚拟机是一个面向栈的解释器, 因此有许多操作都是load和pop, 并且当然也有很多jump和条件判断. 字节码的解释器则是在<a href="https://github.com/python/cpython/blob/master/Python/ceval.c"><code class="highlighter-rouge">ceval.c</code></a>中实现, 对于字节码的具体改变则会依赖于python的主版本. 比如<code class="highlighter-rouge">PRINT_ITEM </code>和<code class="highlighter-rouge">PRINT_NEWLINE</code>在python 3中则被去掉了.</p>
+
+<p>在反汇编的输出中, 最左的数字(1,2,3)是源文件中的行号, 而接下来的数字(0,3,6,9)这是指令中的字节偏移. 指令的操作数这是直接用数字呈现, 而在括号内的这是符号性的解释. <code class="highlighter-rouge">&gt;&gt;</code>所表示的行实际上是代码中某处跳转指令的目标地址.</p>
+
+<p>我们这个样例非常简单, 它只是一个模块中单一的代码对象中的指令流程. 在现实中有着类和函数定义的模块会十分复杂. 那些类和函数本身就是const列表中的代码对象, 在模块中进行了足够深的嵌套.</p>
+
+<p>一旦你开始在这个级别挖掘, 会发现有各种各样适用于代码对象的工具. 在标准库中有内置的<a href="http://docs.python.org/lib/built-in-funcs.html#l2h-18">compile</a>函数, 以及<a href="http://docs.python.org/lib/module-compiler.html">compiler</a>, <a href="http://docs.python.org/lib/module-codeop.html">codeop</a>和<a href="http://docs.python.org/lib/bytecodes.html">opcode</a>模块. 在真实场景中会有很多第三方包比如<a href="http://www.aminus.org/rbre/python/index.html">codewalk</a>, <a href="http://wiki.python.org/moin/ByteplayDoc">byteplay</a>和<a href="http://bytecodehacks.sourceforge.net/bch-docs/bch/index.html">bytecodehacks</a>等. <a href="https://www.python.org/dev/peps/pep-0339/">PEP 339</a>给出了有关编译和操作码的更多详细信息. 最后</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/12/24/flareon4-3-winappdbg/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2018/01/26/unicorn-intro/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/12/24/flareon4-3-winappdbg/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2018/01/26/unicorn-intro/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

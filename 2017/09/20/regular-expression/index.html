@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>RE(正则表达式)库</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>RE(正则表达式)库</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-09-20">2017-09-20</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#python" title="python">python</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#tool" title="tool">tool</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="正则表达式的常用操作符">正则表达式的常用操作符</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>操作符</th>
+      <th>说明</th>
+      <th>示例</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>.</td>
+      <td>表示任何单个字符</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>[]</td>
+      <td>字符集, 对单个字符给出取值范围</td>
+      <td>[abc]表示a,b,c, [a-z]表示a到z单个字符</td>
+    </tr>
+    <tr>
+      <td>[^ ]</td>
+      <td>非字符集, 对单个字符给出排除范围</td>
+      <td>[^abc]表示非a或b或c的单个字符</td>
+    </tr>
+    <tr>
+      <td>*</td>
+      <td>前一个字符0次或无限次扩展</td>
+      <td>abc*表示ab, abc, abcc等</td>
+    </tr>
+    <tr>
+      <td>+</td>
+      <td>前一个字符1次或无限次扩展</td>
+      <td>abc+表示abc, abcc, abccc等</td>
+    </tr>
+    <tr>
+      <td>?</td>
+      <td>前一个字符0次或1次扩展</td>
+      <td>abc?表示ab, abc</td>
+    </tr>
+    <tr>
+      <td>|</td>
+      <td>左右表达式任意一个</td>
+      <td>abc|def表示abc或def</td>
+    </tr>
+    <tr>
+      <td>{m}</td>
+      <td>扩展前一个字符m次</td>
+      <td>ab{2}c表示abbc</td>
+    </tr>
+    <tr>
+      <td>{m,n}</td>
+      <td>扩展前一个字符m到n次(含n)</td>
+      <td>ab{1,2}c表示abc, abbc</td>
+    </tr>
+    <tr>
+      <td>^</td>
+      <td>匹配字符串开头</td>
+      <td>^abc表示abc且在一个字符串的开头</td>
+    </tr>
+    <tr>
+      <td>$</td>
+      <td>匹配字符串结尾</td>
+      <td>abc$表示abc且在一个字符串的结尾</td>
+    </tr>
+    <tr>
+      <td>()</td>
+      <td>分组标记, 内部只能用|操作符</td>
+      <td>(abc)表示abc</td>
+    </tr>
+    <tr>
+      <td>\d</td>
+      <td>数字, 等价于[0-9]</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>\w</td>
+      <td>单词字符, 等价于[A-Za-z0-9_]</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="re库的主要函数">RE库的主要函数</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>函数</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>re.search(pattern, string, flags=0)</td>
+      <td>在一个字符串中搜索匹配正则表达式的第一个位置, 返回match对象</td>
+    </tr>
+    <tr>
+      <td>re.match(pattern, string, flags=0)</td>
+      <td>从一个字符串的开始位置起匹配正则表达式, 返回match对象</td>
+    </tr>
+    <tr>
+      <td>re.findall(pattern, string, flags=0)</td>
+      <td>搜索字符串, 以列表类型返回全部能匹配的子串</td>
+    </tr>
+    <tr>
+      <td>re.split(pattern, string, maxsplit=0, flags=0)</td>
+      <td>将一个字符串按照正则表达式匹配结果进行分割, 返回列表类型</td>
+    </tr>
+    <tr>
+      <td>re.finditer(pattern, string, flags=0)</td>
+      <td>搜索字符串, 返回一个匹配结果的迭代类型, 每个迭代元素是match对象</td>
+    </tr>
+    <tr>
+      <td>re.sub(pattern, repl, string, count=0, flags=0)</td>
+      <td>在一个字符串中替换所有匹配正则表达式的子串, 返回替换后的字符串</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="flags-正则表达式使用时的控制标记">flags: 正则表达式使用时的控制标记</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>标记</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>re.I     re.IGNORECASE</td>
+      <td>忽略正则表达式的大小写, [A-Z]能够匹配小写字符</td>
+    </tr>
+    <tr>
+      <td>re.M   re.MULTILINE</td>
+      <td>正则表达式中的^操作符能够将给定字符串的每行当做匹配开始</td>
+    </tr>
+    <tr>
+      <td>re.S    re.DOTALL</td>
+      <td>正则表达式中.操作符能够匹配所有字符, 默认匹配除换行外的所有字符</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="一种等价的调用方式">一种等价的调用方式</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rst</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">r'[1-9]\d{5}'</span><span class="p">,</span> <span class="s">'BIT 100081'</span><span class="p">)</span>
+
+<span class="n">pat</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compiler</span><span class="p">(</span><span class="s">r'[1-9]\d{5}'</span><span class="p">)</span>
+<span class="n">rst</span> <span class="o">=</span> <span class="n">pat</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">'BIT 100081'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="match对象的方法">Match对象的方法</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>.string</td>
+      <td>待匹配的文本</td>
+    </tr>
+    <tr>
+      <td>.re</td>
+      <td>匹配时使用的pattern对象(正则表达式)</td>
+    </tr>
+    <tr>
+      <td>.pos</td>
+      <td>正则表达式搜索文本的开始位置</td>
+    </tr>
+    <tr>
+      <td>.endpos</td>
+      <td>正则表达式搜索文本的结束位置</td>
+    </tr>
+    <tr>
+      <td>.group(0)</td>
+      <td>获得匹配后的字符串</td>
+    </tr>
+    <tr>
+      <td>.start()</td>
+      <td>匹配字符串在原始字符串的开始位置</td>
+    </tr>
+    <tr>
+      <td>.end()</td>
+      <td>匹配字符串在原始字符串的结束位置</td>
+    </tr>
+    <tr>
+      <td>.span()</td>
+      <td>返回(.start(), .end())</td>
+    </tr>
+  </tbody>
+</table>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/29/red-envelope/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/10/23/a-exercise-about-base64-with-custom-character-set/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/29/red-envelope/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/10/23/a-exercise-about-base64-with-custom-character-set/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

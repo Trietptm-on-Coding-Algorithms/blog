@@ -1,0 +1,18 @@
+permalink: /:year/:month/:day/:title/
+url: http://www.vancir.com
+name: Vancir
+author: Vancir
+qq: 493287288
+email: vancirprince@gmail.com
+github: vancir
+highlighter: rouge
+safe: true
+paginate: 15
+plugins: [jekyll-paginate, jekyll-twitter-plugin, jekyll-youtube]
+defaults:
+ -
+  scope:
+    path: "_posts" # 一个空的字符串代表项目中所有的文件
+  values:
+    layout: "post"
+    author: "Vancir"

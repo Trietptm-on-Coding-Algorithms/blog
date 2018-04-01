@@ -1,0 +1,26 @@
+---
+title: '404 page not found'
+layout: page
+---
+
+<script>
+var posts =
+{
+{% for post in site.posts %} {% if post.thread %}
+"{{ post.thread }}" : "{{ post.url }}",{% endif %}{% endfor %}
+};
+
+var path = location.pathname;
+if(path.charAt(path.length - 1) == '/') path = path.substring(0, path.length - 1);
+var name = path.substring(path.lastIndexOf('/') + 1);
+var url = posts[name];
+if (url)
+{
+	document.write("The article you visited has been transferred to the new location. It is turning to <a href=" + url + ">" + url + "</a>");
+	location.href = url;
+}
+else
+{
+	document.write("The page you are looking for no longer exists. Perhaps you can return back to the site’s <a href="/">homepage</a> and see if you can find what you are looking for.");
+}
+</script>

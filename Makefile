@@ -6,6 +6,7 @@ deploy:
 	git checkout gh-pages
 	rm -r ./*
 	cp -r /tmp/_site/* ./
+	echo "vancir.com\nwww.vancir.com" > CNAME
 	git add -A
 	git commit -m "deploy blog"
 	git push -f origin gh-pages

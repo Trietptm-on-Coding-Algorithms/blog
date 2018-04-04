@@ -2,7 +2,16 @@
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>http://localhost:4000/2018/03/06/tscookie/</loc>
+    <loc>http://www.vancir.com/2018/04/04/android-anti-emulator/</loc>
+    
+    <lastmod>2018-04-04T00:00:00+08:00</lastmod>
+    
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <url>
+    <loc>http://www.vancir.com/2018/03/06/tscookie/</loc>
     
     <lastmod>2018-03-06T00:00:00+08:00</lastmod>
     
@@ -11,7 +20,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2018/02/06/solve-white-habbit-crackme/</loc>
+    <loc>http://www.vancir.com/2018/02/06/solve-white-habbit-crackme/</loc>
     
     <lastmod>2018-02-06T00:00:00+08:00</lastmod>
     
@@ -20,7 +29,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2018/01/26/unicorn-intro/</loc>
+    <loc>http://www.vancir.com/2018/01/26/unicorn-intro/</loc>
     
     <lastmod>2018-01-26T00:00:00+08:00</lastmod>
     
@@ -29,7 +38,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2018/01/21/pyc-structure/</loc>
+    <loc>http://www.vancir.com/2018/01/21/pyc-structure/</loc>
     
     <lastmod>2018-01-21T00:00:00+08:00</lastmod>
     
@@ -38,7 +47,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/24/flareon4-3-winappdbg/</loc>
+    <loc>http://www.vancir.com/2017/12/24/flareon4-3-winappdbg/</loc>
     
     <lastmod>2017-12-24T00:00:00+08:00</lastmod>
     
@@ -47,7 +56,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/23/flareon4-3-angr/</loc>
+    <loc>http://www.vancir.com/2017/12/23/flareon4-3-angr/</loc>
     
     <lastmod>2017-12-23T00:00:00+08:00</lastmod>
     
@@ -56,7 +65,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/22/flareon4-3-libpeconv/</loc>
+    <loc>http://www.vancir.com/2017/12/22/flareon4-3-libpeconv/</loc>
     
     <lastmod>2017-12-22T00:00:00+08:00</lastmod>
     
@@ -65,7 +74,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/21/flareon4-3/</loc>
+    <loc>http://www.vancir.com/2017/12/21/flareon4-3/</loc>
     
     <lastmod>2017-12-21T00:00:00+08:00</lastmod>
     
@@ -74,7 +83,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/20/wsnopem-unpack-two/</loc>
+    <loc>http://www.vancir.com/2017/12/20/wsnopem-unpack-two/</loc>
     
     <lastmod>2017-12-20T00:00:00+08:00</lastmod>
     
@@ -83,7 +92,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/19/wsnpoem-unack-one/</loc>
+    <loc>http://www.vancir.com/2017/12/19/wsnpoem-unack-one/</loc>
     
     <lastmod>2017-12-19T00:00:00+08:00</lastmod>
     
@@ -92,7 +101,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/17/yoda-unpack/</loc>
+    <loc>http://www.vancir.com/2017/12/17/yoda-unpack/</loc>
     
     <lastmod>2017-12-17T00:00:00+08:00</lastmod>
     
@@ -101,7 +110,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/12/01/objdump-limitations/</loc>
+    <loc>http://www.vancir.com/2017/12/01/objdump-limitations/</loc>
     
     <lastmod>2017-12-01T00:00:00+08:00</lastmod>
     
@@ -110,7 +119,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/11/26/pwnabletw-start/</loc>
+    <loc>http://www.vancir.com/2017/11/26/pwnabletw-start/</loc>
     
     <lastmod>2017-11-26T00:00:00+08:00</lastmod>
     
@@ -119,7 +128,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/11/26/hxb-pwnme/</loc>
+    <loc>http://www.vancir.com/2017/11/26/hxb-pwnme/</loc>
     
     <lastmod>2017-11-26T00:00:00+08:00</lastmod>
     
@@ -128,7 +137,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/11/23/taintdroid-install/</loc>
+    <loc>http://www.vancir.com/2017/11/23/taintdroid-install/</loc>
     
     <lastmod>2017-11-23T00:00:00+08:00</lastmod>
     
@@ -137,7 +146,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/11/20/upx-dll-unpack/</loc>
+    <loc>http://www.vancir.com/2017/11/20/upx-dll-unpack/</loc>
     
     <lastmod>2017-11-20T00:00:00+08:00</lastmod>
     
@@ -146,7 +155,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/11/16/!EP(EXE-Pack)v1_2/</loc>
+    <loc>http://www.vancir.com/2017/11/16/!EP(EXE-Pack)v1_2/</loc>
     
     <lastmod>2017-11-16T00:00:00+08:00</lastmod>
     
@@ -155,7 +164,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/11/15/swpu-cm50/</loc>
+    <loc>http://www.vancir.com/2017/11/15/swpu-cm50/</loc>
     
     <lastmod>2017-11-15T00:00:00+08:00</lastmod>
     
@@ -164,7 +173,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/11/15/hctf-level1/</loc>
+    <loc>http://www.vancir.com/2017/11/15/hctf-level1/</loc>
     
     <lastmod>2017-11-15T00:00:00+08:00</lastmod>
     
@@ -173,7 +182,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/10/23/a-exercise-about-base64-with-custom-character-set/</loc>
+    <loc>http://www.vancir.com/2017/10/23/a-exercise-about-base64-with-custom-character-set/</loc>
     
     <lastmod>2017-10-23T00:00:00+08:00</lastmod>
     
@@ -182,7 +191,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/09/20/regular-expression/</loc>
+    <loc>http://www.vancir.com/2017/09/20/regular-expression/</loc>
     
     <lastmod>2017-09-20T00:00:00+08:00</lastmod>
     
@@ -191,7 +200,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/29/red-envelope/</loc>
+    <loc>http://www.vancir.com/2017/08/29/red-envelope/</loc>
     
     <lastmod>2017-08-29T00:00:00+08:00</lastmod>
     
@@ -200,7 +209,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/29/friend-group/</loc>
+    <loc>http://www.vancir.com/2017/08/29/friend-group/</loc>
     
     <lastmod>2017-08-29T00:00:00+08:00</lastmod>
     
@@ -209,7 +218,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/27/YouCompleteMe/</loc>
+    <loc>http://www.vancir.com/2017/08/27/YouCompleteMe/</loc>
     
     <lastmod>2017-08-27T00:00:00+08:00</lastmod>
     
@@ -218,7 +227,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/23/c-traps-pitfalls-ch01/</loc>
+    <loc>http://www.vancir.com/2017/08/23/c-traps-pitfalls-ch01/</loc>
     
     <lastmod>2017-08-23T00:00:00+08:00</lastmod>
     
@@ -227,7 +236,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/14/unsafe-unlink-example/</loc>
+    <loc>http://www.vancir.com/2017/08/14/unsafe-unlink-example/</loc>
     
     <lastmod>2017-08-14T00:00:00+08:00</lastmod>
     
@@ -236,7 +245,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/unlink-exploit/</loc>
+    <loc>http://www.vancir.com/2017/08/12/unlink-exploit/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -245,7 +254,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/shrinking-free-chunks/</loc>
+    <loc>http://www.vancir.com/2017/08/12/shrinking-free-chunks/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -254,7 +263,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/house-of-spirit/</loc>
+    <loc>http://www.vancir.com/2017/08/12/house-of-spirit/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -263,7 +272,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/house-of-lore/</loc>
+    <loc>http://www.vancir.com/2017/08/12/house-of-lore/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -272,7 +281,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/house-of-force/</loc>
+    <loc>http://www.vancir.com/2017/08/12/house-of-force/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -281,7 +290,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/house-of-einherjar/</loc>
+    <loc>http://www.vancir.com/2017/08/12/house-of-einherjar/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -290,7 +299,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/forging-chunks/</loc>
+    <loc>http://www.vancir.com/2017/08/12/forging-chunks/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -299,7 +308,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/12/double-free/</loc>
+    <loc>http://www.vancir.com/2017/08/12/double-free/</loc>
     
     <lastmod>2017-08-12T00:00:00+08:00</lastmod>
     
@@ -308,7 +317,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/11/security-checks/</loc>
+    <loc>http://www.vancir.com/2017/08/11/security-checks/</loc>
     
     <lastmod>2017-08-11T00:00:00+08:00</lastmod>
     
@@ -317,7 +326,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/11/malloc-state/</loc>
+    <loc>http://www.vancir.com/2017/08/11/malloc-state/</loc>
     
     <lastmod>2017-08-11T00:00:00+08:00</lastmod>
     
@@ -326,7 +335,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/11/first-fit/</loc>
+    <loc>http://www.vancir.com/2017/08/11/first-fit/</loc>
     
     <lastmod>2017-08-11T00:00:00+08:00</lastmod>
     
@@ -335,7 +344,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/10/vimium/</loc>
+    <loc>http://www.vancir.com/2017/08/10/vimium/</loc>
     
     <lastmod>2017-08-10T00:00:00+08:00</lastmod>
     
@@ -344,7 +353,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/10/core-functions/</loc>
+    <loc>http://www.vancir.com/2017/08/10/core-functions/</loc>
     
     <lastmod>2017-08-10T00:00:00+08:00</lastmod>
     
@@ -353,7 +362,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/10/Internal-functions/</loc>
+    <loc>http://www.vancir.com/2017/08/10/Internal-functions/</loc>
     
     <lastmod>2017-08-10T00:00:00+08:00</lastmod>
     
@@ -362,7 +371,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/09/malloc-chunk/</loc>
+    <loc>http://www.vancir.com/2017/08/09/malloc-chunk/</loc>
     
     <lastmod>2017-08-09T00:00:00+08:00</lastmod>
     
@@ -371,7 +380,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/09/how2heap-04-unsafe-unlink/</loc>
+    <loc>http://www.vancir.com/2017/08/09/how2heap-04-unsafe-unlink/</loc>
     
     <lastmod>2017-08-09T00:00:00+08:00</lastmod>
     
@@ -380,7 +389,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/09/Heap-memory/</loc>
+    <loc>http://www.vancir.com/2017/08/09/Heap-memory/</loc>
     
     <lastmod>2017-08-09T00:00:00+08:00</lastmod>
     
@@ -389,7 +398,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/09/Bins-and-Chunks/</loc>
+    <loc>http://www.vancir.com/2017/08/09/Bins-and-Chunks/</loc>
     
     <lastmod>2017-08-09T00:00:00+08:00</lastmod>
     
@@ -398,7 +407,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/07/%E5%85%B3%E4%BA%8EC%E6%8C%87%E9%92%88%E7%9A%84%E5%90%84%E7%A7%8D%E7%94%A8%E6%B3%95%E7%9A%84%E5%85%B7%E4%BD%93%E5%80%BC%E5%88%86%E6%9E%90/</loc>
+    <loc>http://www.vancir.com/2017/08/07/%E5%85%B3%E4%BA%8EC%E6%8C%87%E9%92%88%E7%9A%84%E5%90%84%E7%A7%8D%E7%94%A8%E6%B3%95%E7%9A%84%E5%85%B7%E4%BD%93%E5%80%BC%E5%88%86%E6%9E%90/</loc>
     
     <lastmod>2017-08-07T00:00:00+08:00</lastmod>
     
@@ -407,7 +416,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/07/owncloud/</loc>
+    <loc>http://www.vancir.com/2017/08/07/owncloud/</loc>
     
     <lastmod>2017-08-07T00:00:00+08:00</lastmod>
     
@@ -416,7 +425,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/07/osmocombb+c118%E8%BF%9B%E8%A1%8CGSM%E7%9F%AD%E4%BF%A1%E5%97%85%E6%8E%A2%E5%AE%9E%E9%AA%8C/</loc>
+    <loc>http://www.vancir.com/2017/08/07/osmocombb+c118%E8%BF%9B%E8%A1%8CGSM%E7%9F%AD%E4%BF%A1%E5%97%85%E6%8E%A2%E5%AE%9E%E9%AA%8C/</loc>
     
     <lastmod>2017-08-07T00:00:00+08:00</lastmod>
     
@@ -425,7 +434,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/06/how2heap-03-fastbin-dup-into-stack/</loc>
+    <loc>http://www.vancir.com/2017/08/06/how2heap-03-fastbin-dup-into-stack/</loc>
     
     <lastmod>2017-08-06T00:00:00+08:00</lastmod>
     
@@ -434,7 +443,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/05/how2heap-02-fastbin-dup/</loc>
+    <loc>http://www.vancir.com/2017/08/05/how2heap-02-fastbin-dup/</loc>
     
     <lastmod>2017-08-05T00:00:00+08:00</lastmod>
     
@@ -443,7 +452,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/04/stack-privot-%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
+    <loc>http://www.vancir.com/2017/08/04/stack-privot-%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
     
     <lastmod>2017-08-04T00:00:00+08:00</lastmod>
     
@@ -452,7 +461,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/04/ret2__libc_csu_init%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BD%BF%E7%94%A8%E9%80%9A%E7%94%A8gadget/</loc>
+    <loc>http://www.vancir.com/2017/08/04/ret2__libc_csu_init%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BD%BF%E7%94%A8%E9%80%9A%E7%94%A8gadget/</loc>
     
     <lastmod>2017-08-04T00:00:00+08:00</lastmod>
     
@@ -461,7 +470,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/04/how2heap-01-first-fit/</loc>
+    <loc>http://www.vancir.com/2017/08/04/how2heap-01-first-fit/</loc>
     
     <lastmod>2017-08-04T00:00:00+08:00</lastmod>
     
@@ -470,7 +479,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/03/ret2text%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
+    <loc>http://www.vancir.com/2017/08/03/ret2text%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
     
     <lastmod>2017-08-03T00:00:00+08:00</lastmod>
     
@@ -479,7 +488,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/03/ret2syscall%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
+    <loc>http://www.vancir.com/2017/08/03/ret2syscall%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
     
     <lastmod>2017-08-03T00:00:00+08:00</lastmod>
     
@@ -488,7 +497,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/03/ret2shellcode%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
+    <loc>http://www.vancir.com/2017/08/03/ret2shellcode%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B/</loc>
     
     <lastmod>2017-08-03T00:00:00+08:00</lastmod>
     
@@ -497,7 +506,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%B3%84%E9%9C%B2libc%E5%9F%BA%E5%9C%B0%E5%9D%80%E8%AE%A1%E7%AE%97system()%E5%9C%B0%E5%9D%80%E7%BB%95%E8%BF%87ASLR/</loc>
+    <loc>http://www.vancir.com/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%B3%84%E9%9C%B2libc%E5%9F%BA%E5%9C%B0%E5%9D%80%E8%AE%A1%E7%AE%97system()%E5%9C%B0%E5%9D%80%E7%BB%95%E8%BF%87ASLR/</loc>
     
     <lastmod>2017-08-03T00:00:00+08:00</lastmod>
     
@@ -506,7 +515,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%A8%A1%E6%8B%9F%E6%89%A7%E8%A1%8Csystem%E5%87%BD%E6%95%B0%E7%BB%95%E8%BF%87NX%E4%BF%9D%E6%8A%A4/</loc>
+    <loc>http://www.vancir.com/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E6%A8%A1%E6%8B%9F%E6%89%A7%E8%A1%8Csystem%E5%87%BD%E6%95%B0%E7%BB%95%E8%BF%87NX%E4%BF%9D%E6%8A%A4/</loc>
     
     <lastmod>2017-08-03T00:00:00+08:00</lastmod>
     
@@ -515,7 +524,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BB%85%E6%9C%89system()%E6%83%85%E5%86%B5%E4%B8%8B%E8%BE%93%E5%85%A5binsh%E5%AE%8C%E6%88%90%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/</loc>
+    <loc>http://www.vancir.com/2017/08/03/ret2libc%E6%94%BB%E5%87%BB%E6%8A%80%E6%9C%AF%E7%A4%BA%E4%BE%8B-%E4%BB%85%E6%9C%89system()%E6%83%85%E5%86%B5%E4%B8%8B%E8%BE%93%E5%85%A5binsh%E5%AE%8C%E6%88%90%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/</loc>
     
     <lastmod>2017-08-03T00:00:00+08:00</lastmod>
     
@@ -524,7 +533,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/02/tmux/</loc>
+    <loc>http://www.vancir.com/2017/08/02/tmux/</loc>
     
     <lastmod>2017-08-02T00:00:00+08:00</lastmod>
     
@@ -533,7 +542,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/02/Tensorflow-TFlearn/</loc>
+    <loc>http://www.vancir.com/2017/08/02/Tensorflow-TFlearn/</loc>
     
     <lastmod>2017-08-02T00:00:00+08:00</lastmod>
     
@@ -542,7 +551,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/01/Github-Pages-Jekyll/</loc>
+    <loc>http://www.vancir.com/2017/08/01/Github-Pages-Jekyll/</loc>
     
     <lastmod>2017-08-01T00:00:00+08:00</lastmod>
     
@@ -551,7 +560,7 @@
   </url>
   
   <url>
-    <loc>http://localhost:4000/2017/08/01/2016%E6%AD%A6%E6%B1%89%E5%9B%BD%E5%AE%B6%E5%AE%89%E5%85%A8%E5%91%A8%E5%A4%A7%E8%B5%9BWriteup/</loc>
+    <loc>http://www.vancir.com/2017/08/01/2016%E6%AD%A6%E6%B1%89%E5%9B%BD%E5%AE%B6%E5%AE%89%E5%85%A8%E5%91%A8%E5%A4%A7%E8%B5%9BWriteup/</loc>
     
     <lastmod>2017-08-01T00:00:00+08:00</lastmod>
     

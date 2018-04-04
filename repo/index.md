@@ -3,7 +3,7 @@ title: Repositories
 layout: page
 ---
 
-我在这里列举一些在我看来非常棒的开源工具
+我在这里列举一些在我看来非常棒的开源项目
 
 ## Win32
 

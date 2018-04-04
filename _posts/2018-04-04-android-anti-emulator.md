@@ -1,5 +1,5 @@
 ---
-title: Android检测模拟器的一些代码
+title: 检测Android虚拟机的方法和代码实现
 tags: [anti-vm]
 layout: post
 categories: 
@@ -608,7 +608,7 @@ ARM处理器包含有两个不同的缓冲Cache, 一个用于指令访问(I-Cach
 
 看到这里会不会已经觉得检测方法够多了. 可是我还只是看了13年14年的资料. 有关近几年的资料还未涉及. 
 
-最后我就把这些检测方法整合在一张思维导图(见附件)里供大家一览, 欢迎大家和我交流带带我
+最后我就把这些检测方法整合在一张[思维导图](http://od7mpc53s.bkt.clouddn.com/detect-android-emulator.png)里供大家一览, 欢迎大家和我交流带带我
 
 ## 参考链接
 

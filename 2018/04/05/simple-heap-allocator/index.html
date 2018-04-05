@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>SHMALL简单堆内存分配器(Simple Heap Memory ALLocator)</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>SHMALL简单堆内存分配器(Simple Heap Memory ALLocator)</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2018-04-05">2018-04-05</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#c/c++" title="c/c++">c/c++</a>&nbsp;
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#heap" title="heap">heap</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<p><a href="https://github.com/CCareaga/heap_allocator">SHMALL</a>是作者<a href="https://github.com/CCareaga">@CCareaga</a>为OS爱好者而编写的一个简单堆分配器. CCareaga编写的这个堆分配器力图尽可能易于理解. 希望能帮到那些OS开发的初学者以及那些对malloc和free的简单函数实现感兴趣的人.</p>
+
+<blockquote>
+  <p>我在学习原repo的过程中, 将README里的解释以及代码中的注释翻译成了中文, 详情可见: <a href="https://github.com/Vancir/heap_allocator">Vancir/heap_allocator</a></p>
+</blockquote>
+
+<h2 id="compiling">Compiling</h2>
+<hr />
+<p>代码中包含两个头文件, 各自用于定义堆和链表.</p>
+
+<p>编译命令:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ gcc main.c llist.c heap.c -o heap_test 
+$ ./heap_test
+</code></pre></div></div>
+
+<p>这会运行分配器的一个demo并输出一些信息.</p>
+
+<h2 id="initialization">Initialization</h2>
+
+<p>需要提供一块内存用以初始化堆空间. 在这里是用的<code class="highlighter-rouge">malloc</code>进行分配. <code class="highlighter-rouge">heap_t</code>结构中的bins也同样需要分配内存</p>
+
+<p>调用函数<code class="highlighter-rouge">init_heap</code>必须要提供一个空白堆结构的地址. 函数<code class="highlighter-rouge">init_heap</code>会创建一个chunk, chunk包含有一个header(<code class="highlighter-rouge">node_t</code>结构)和一个footer(<code class="highlighter-rouge">footer_t</code>结构). 函数需要使用常量<code class="highlighter-rouge">HEAP_INIT_SIZE</code>来确定chunk的大小, 并将其添加到<code class="highlighter-rouge">start</code>参数中以便确定heap的终结位置.</p>
+
+<h2 id="metadata-and-design">Metadata and Design</h2>
+
+<p>每个chunk的内存都包含一个位于开头的node结构和一个位于结尾的footer结构. 无论chunk被释放与否, node结构都包含有chunk的size以及2个用于双向链表中的指针(next和prev). footer结构只包含一个指向header的指针(当要释放相邻chunk时会用到这个指针). 在堆末尾的chunk被称为<code class="highlighter-rouge">wilderness chunk</code>. 它是堆中最大的chunk并且它的最大最小值都有在heap.h中声明. 合并或扩展chunk时就可以通过伸缩wilderness chunk来实现. 被释放的chunk存储在<code class="highlighter-rouge">bin</code>里, 每个bin实际上只是一个由大小相近的node组成的双向链表. 堆结构包含一定数量的bin, 数量在heap.h里的<code class="highlighter-rouge">BIN_COUNT</code>有定义. 要确定哪个bin放哪种chunk, 使用函数<code class="highlighter-rouge">get_bin_index</code>, 将chunk的size作为索引进行确定.</p>
+
+<p>这种一致的binning函数可以确保chunk可以以预定的方式来访问和存储. chunks按顺序插入到bin中, 所以chunk的插入操作并不是O(1), 但也变得更加方便查找最合适的chunk. 注意, 你可以自己定义binning函数, 尽管默认的binning函数的表现已经足够优秀. 确定一个可以帮助快速检索chunk的更复杂binning函数也许是十分值得的.</p>
+
+<h2 id="allocation">Allocation</h2>
+
+<p>函数<code class="highlighter-rouge">heap_alloc</code>取刚刚分配的heap结构地址以及一个size作为参数. 使用函数<code class="highlighter-rouge">get_bin_index</code>来确定对应size的chunk的位置, 当然也许并没有那个size的chunk存在. 如果没有在对应的bin中找到合适的chunk, 那么就会检查下一个bin, 直到找到一个合适的chunk, 或是在找的过程中到达了最后一个bin(也没有找到), 这种情况下会从wilderness堆块中取一块内存出来创建chunk. 如果找到的chunk过大, 那么就会将该chunk分割一小块回收进bin里. 在判定一个chunk是否需要分割的时候, 会减去chunk中不需要使用的元数据(overhead)的大小, 根据剩下的size来确定. 如果chunk分割后, chunk左边的部分内存大于或等于<code class="highlighter-rouge">MIN_ALLOC_SZ</code>, 那我们就应该继续分割chunk并将剩余部分放到合适的bin中. 一旦我们准备好返回我们找到的chunk, 我们返回chunk的<code class="highlighter-rouge">next</code>地址. 这是因为分配chunk时我们并没有用到<code class="highlighter-rouge">next</code>和<code class="highlighter-rouge">prev</code>, 因此chunk的使用者可以将数据写进<code class="highlighter-rouge">next</code>域, 而这不会对堆的内部工作产生丝毫影响.</p>
+
+<h2 id="freeing">Freeing</h2>
+
+<p>函数<code class="highlighter-rouge">heap_free</code>获取<code class="highlighter-rouge">heap_alloc</code>返回的指针. 通过减去合适的偏移量以获取node结构的正确地址. 函数<code class="highlighter-rouge">heap_free</code>并不是简单地将chunk放置在对应的bin里就行了, 还会检查chunk周边的其他chunk. 如果周边的chunk处于空闲状态那么我们就可以将这些chunk合并成一个更大的chunk. 为了合并这些chunk, 我们需要使用footer来获取前一个chunk和后一个chunk的node结构. 比方说, 我们有一个叫<code class="highlighter-rouge">to_free</code>的chunk. 我们减去<code class="highlighter-rouge">sizeof(footer_t)</code>可以获取前一个chunk的footer, 这个footer包含一个指向前一个chunk头部的指针. 而获取后一个chunk , 我们相反加上<code class="highlighter-rouge">sizeof(footer_t)</code>即可. 当合并完毕, 我们会重新计算合并后的chunk的大小并放置进bin里</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2018/04/04/android-anti-emulator/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a   class="pageNavInvalid"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://www.vancir.com/2018/04/04/android-anti-emulator/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

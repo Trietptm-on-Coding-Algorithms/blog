@@ -1,5 +1,5 @@
 ---
-title: 模糊测试: 初学者入门指南
+title: 模糊测试-初学者入门指南
 tags: [fuzzing]
 layout: post
 categories: 

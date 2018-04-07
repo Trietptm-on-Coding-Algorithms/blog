@@ -8,7 +8,11 @@ comments: yes
 
 ## Anime
 
-#### [反叛的鲁路修(Code Geass)](https://movie.douban.com/subject/2043155/)
+#### [反叛的鲁路修(Code Geass)](https://zh.wikipedia.org/wiki/Code_Geass%E5%8F%8D%E5%8F%9B%E7%9A%84%E9%AD%AF%E8%B7%AF%E4%BF%AE)
+
+#### [东京喰种(Tokyo Ghost)](https://zh.wikipedia.org/wiki/%E6%9D%B1%E4%BA%AC%E5%96%B0%E7%A8%AE)
+
+{% twitter https://twitter.com/Vancirprince/status/982225299864666113 %}
 
 ----
 
@@ -40,4 +44,6 @@ comments: yes
 
 #### [忠犬八公的故事(Hachi: A Dog's Tale)](https://movie.douban.com/subject/3011091/)
 {% twitter https://twitter.com/Vancirprince/status/869036391107248128 %}
+
+#### [胜利即是正义(Legal High)](https://zh.wikipedia.org/zh-sg/Legal_High)
 

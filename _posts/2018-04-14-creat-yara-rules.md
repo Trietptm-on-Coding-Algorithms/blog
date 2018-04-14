@@ -934,7 +934,7 @@ include "c://yara/includes/oldRappers.yar"
 
 * [Yara-Rules/rules](https://github.com/Yara-Rules/rules)
 * [How to Write Simple but Sound Yara Rules - BSK Consulting GmbH](https://www.bsk-consulting.de/2015/02/16/write-simple-sound-yara-rules/)
-* [yara-resource.png]()
+* ![yara-resource.png](http://od7mpc53s.bkt.clouddn.com/yara-resource.png)
 * [descs/worm_w32_downadup_al.shtml](https://www.f-secure.com/v-descs/worm_w32_downadup_al.shtml)
 * [https://www.f-secure.com/v-descs/worm_w32_downadup.shtml](https://www.f-secure.com/v-descs/worm_w32_downadup.shtml)
 * [https://support.microsoft.com/en-us/help/962007/virus-alert-about-the-win32-conficker-worm](https://support.microsoft.com/en-us/help/962007/virus-alert-about-the-win32-conficker-worm)

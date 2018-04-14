@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>编写YARA规则检测恶意软件</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>编写YARA规则检测恶意软件</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2018-04-14">2018-04-14</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#tutorials" title="tutorials">tutorials</a>&nbsp;
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#RE" title="RE">RE</a>&nbsp;
+  
+  <a href="/tags/#malware" title="malware">malware</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="简介">简介</h2>
+
+<p>我们都知道, 黑掉漏洞百出的代码比修补代码有趣得多. 但只会入侵的黑客并不一定能满足雇主的需求. 一些公司就希望安全研究人员能够基于他们收集和发现的恶意软件样本或泄露数据进行补丁.</p>
+
+<p>本文适合人群: 新手和爱好者</p>
+
+<h3 id="阅读本文需要的知识">阅读本文需要的知识</h3>
+
+<p>其实并不需要太多知识要求, 当你对恶意软件分析和逆向工程理解越深, 你就越有独特的方式捕获恶意软件. 不过这并不妨碍你写出惊人的yara规则出来. 我所见过的大部分规则都相当基础. 大部分看上去就像5分钟就能写好的python脚本. 编写规则, yara规则本身十分简单, 真正的技巧和细节都在分析部分 .</p>
+
+<ul>
+  <li>熟悉GNU Linux</li>
+  <li>熟悉C语言语法(不作要求, 但十分有用)</li>
+  <li>正则表达式 (同上, 不作要求, 但很有用)</li>
+</ul>
+
+<h3 id="声明">声明</h3>
+
+<p>我是自学yara规则, 学校并没有教我这些. 我学习yara大约有30个小时, 花费了我一个周末的时间.</p>
+
+<h2 id="大纲">大纲</h2>
+
+<p>我将介绍以下内容:</p>
+
+<ol>
+  <li>规则标识符</li>
+  <li>Yara关键字</li>
+  <li>字符串
+    <ol>
+      <li>十六进制值</li>
+      <li>文本字符串</li>
+      <li>字符串修饰符</li>
+      <li>正则表达式</li>
+      <li>字符串集</li>
+      <li>匿名字符串</li>
+    </ol>
+  </li>
+  <li>条件
+    <ol>
+      <li>布尔值</li>
+      <li>字符串实例计数</li>
+      <li>字符串偏移或虚拟地址</li>
+      <li>匹配长度</li>
+      <li>文件大小</li>
+      <li>可执行程序入口点</li>
+      <li>访问指定位置的数据</li>
+      <li>对多字符串应用同一条件</li>
+      <li>迭代字符串出现次数</li>
+    </ol>
+  </li>
+  <li>引用其他规则</li>
+  <li>Yara要点
+    <ol>
+      <li>全局规则</li>
+      <li>私有规则</li>
+      <li>规则标签</li>
+      <li>元数据</li>
+      <li>使用模块</li>
+      <li>未定义值</li>
+      <li>外部变量/参数值</li>
+      <li>文件包含</li>
+    </ol>
+  </li>
+</ol>
+
+<p>让我们现在开始吧.</p>
+
+<hr />
+
+<p>Yara与C语言语法十分相像, 以下是一个简单的规则, 这个规则没有进行任何操作:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">HelloRule</span> 
+<span class="p">{</span>
+<span class="n">condition</span><span class="o">:</span>
+<span class="nb">false</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="规则标识符">规则标识符</h2>
+
+<p>规则标识符是上面简单规则示例中跟在<code class="highlighter-rouge">rule</code>后的词,  比如单词”dummy”也可以是一个规则标识符, 标识符命名有如下要求:</p>
+
+<ul>
+  <li>是由英文字母或数字组成的字符串</li>
+  <li>可以使用下划线字符</li>
+  <li>第一个字符不能是数字</li>
+  <li>对大小写敏感</li>
+  <li>不能超出128个字符长度</li>
+</ul>
+
+<h2 id="yara关键字">Yara关键字</h2>
+
+<p>下面这些词不能用作规则标识符, 因为这些单词在yara语言里有特定用处</p>
+
+<blockquote>
+  <p>all, and, any, ascii, at, condition, contains entrypoint, false, filesize, fullword, for, global, in import, include, int8,  nt16, int32, int8be, int16be int32be, matches, meta, nocase, not, or, of private, rule, strings, them, true, uint8, uint16 uint32,  int8be, uint16be, uint32be, wide</p>
+</blockquote>
+
+<p>通常yara有两部分: <strong>字符串定义</strong>和<strong>条件</strong></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">HelloRule2</span>    <span class="c1">// This is an example
+</span><span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">my_text_string</span> <span class="o">=</span> <span class="s">"text here"</span>
+        <span class="err">$</span><span class="n">my_hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">E2</span> <span class="mi">34</span> <span class="n">A1</span> <span class="n">C8</span> <span class="mi">23</span> <span class="n">FB</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">my_text_string</span> <span class="n">or</span> <span class="err">$</span><span class="n">my_hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>当发现有规则里定义的任意字符串, 规则就会生效. 如你所见, 你还可以在规则里添加注释.</p>
+
+<h2 id="十六进制字符串">十六进制字符串</h2>
+
+<h3 id="通配符">通配符</h3>
+
+<p>十六进制字符串可以用通配符表示, 通配符符号用”?”表示</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">GambitWildcard</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">EF</span> <span class="mi">44</span> <span class="o">??</span> <span class="n">D8</span> <span class="n">A</span><span class="o">?</span> <span class="n">FB</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EF 44 01 D8 AA FB
+EF 44 AA D8 AB FB
+</code></pre></div></div>
+
+<h3 id="不定长通配符">不定长通配符</h3>
+
+<p>不定长的字符串可以用下面这个方法表示</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">MarioJump</span>
+<span class="p">{</span>
+        <span class="n">strings</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">F4</span> <span class="mi">23</span> <span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="mi">6</span><span class="p">]</span> <span class="mi">62</span> <span class="n">B4</span> <span class="p">}</span>
+
+        <span class="n">condition</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>F4 23 01 02 03 04 62 B4
+F4 23 AA BB CC DD EE FF 62 B4
+</code></pre></div></div>
+
+<p>当然无限长的字符串也是可以的.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">BuzzLightyear</span>
+<span class="p">{</span>
+        <span class="n">strings</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">F4</span> <span class="mi">23</span> <span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mi">62</span> <span class="n">B4</span> <span class="p">}</span>
+
+        <span class="n">condition</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>F4 23 AA FF 62 B4
+F4 23 AA AA AA AA AA...FF FF 62 B4
+</code></pre></div></div>
+
+<h3 id="有条件的字符串">有条件的字符串</h3>
+
+<p>你可以创建一个字符串应对多种情况</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">WorriedRabbit</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">BA</span> <span class="mi">21</span> <span class="p">(</span> <span class="n">DA</span> <span class="n">BC</span> <span class="o">|</span> <span class="n">C6</span> <span class="p">)</span> <span class="n">A5</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>BA 21 DA BC A5
+BA 21 C6 A5
+</code></pre></div></div>
+
+<h3 id="混合">混合</h3>
+
+<p>当然, 你也可以将上面这几种方法结合起来.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">WorriedGabmitLightyearJump</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">BA</span> <span class="o">??</span> <span class="p">(</span> <span class="n">DA</span> <span class="p">[</span><span class="mi">2</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="o">|</span> <span class="n">C6</span> <span class="p">)</span> <span class="n">A5</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的三个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>BA 01 DA 01 02 03 04 A5
+BA AA C6 A5
+BA FF DA 01 02 A5
+</code></pre></div></div>
+
+<h2 id="文本字符串">文本字符串</h2>
+
+<p>除开使用十六进制字符串, 我们也还可以使用文本字符串</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">KimPossible</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">alert_string</span> <span class="o">=</span> <span class="s">"Whats the Sitch"</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">alert_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>你也可以像C语言那样使用如下的转义符:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">\</span><span class="s">" 双引号</span><span class="err">
+</span><span class="se">\\</span><span class="s"> 反斜杠</span><span class="err">
+</span><span class="se">\t</span><span class="s"> 水平制表符</span><span class="err">
+</span><span class="se">\n</span><span class="s"> 换行符</span><span class="err">
+</span><span class="se">\xdd</span><span class="s"> 以十六进制表示的任何字节</span><span class="err">
+</span></code></pre></div></div>
+
+<h2 id="修饰符">修饰符</h2>
+
+<h3 id="不区分大小写的字符串">不区分大小写的字符串</h3>
+
+<p>Yara默认对大小写敏感, 但你可以使用修饰符将其关闭</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ThickSkin</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">strong_string</span> <span class="o">=</span> <span class="s">"Iron"</span> <span class="n">nocase</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">strong_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="宽字符串">宽字符串</h3>
+
+<p><code class="highlighter-rouge">wide</code>修饰符可以用来搜寻以2字节表示1字符这种方式编码的字符串, 这种宽字符串在许多二进制文件中都有出现. 如果字符串”FatTony”以2字节表示1字符的方式编码并在二进制文件中出现, 我们就可以使用<code class="highlighter-rouge">wide</code>修饰符将其捕获. 因为”FatTony”也可能是”fattony”, 我们也可以添加<code class="highlighter-rouge">nocase</code>修饰符以免错过.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">FatTony</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span> <span class="o">=</span> <span class="s">"FatTony"</span> <span class="n">wide</span> <span class="n">nocase</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>[!]重要提示: 请记住, 该修饰符只是将字符串中字符的ASCII码和\x00交错起来组成宽字符, 它并不支持包含非英文字符的UTF-16字符串. 要想对既有ASCII字符和宽字符的字符串进行搜索, 请使用如下命令:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ASCIIFatTony</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span> <span class="o">=</span> <span class="s">"FatTony"</span> <span class="n">wide</span> <span class="n">ascii</span> <span class="n">nocase</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>字符串默认是ASCII编码, 所以如果你想单独用<code class="highlighter-rouge">ascii</code>搜索”FatTony”, 你并不需要添加<code class="highlighter-rouge">ascii</code>修饰符</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ASCIIFatTony</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span> <span class="o">=</span> <span class="s">"FatTony"</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>如果你想在不使用<code class="highlighter-rouge">wide</code>和<code class="highlighter-rouge">nocase</code>修饰符的情况下进行搜索, 上述这个规则可以生效.</p>
+
+<h3 id="fullwords修饰符">Fullwords修饰符</h3>
+
+<p>该修饰符可用于匹配那些前后没有附加其他字符的单词(全词匹配).</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ShadyDomain</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">shady_domain</span> <span class="o">=</span> <span class="s">"faceebook"</span> <span class="n">fullword</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">shady_domain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的三个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>www.faceebook.com
+www.myportal.faceebook.com
+https://secure.faceebook.com
+</code></pre></div></div>
+
+<p>但这个规则<strong>不能</strong>匹配以下的字符串:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>www.myfaceebook.com
+thefaceebook.com
+</code></pre></div></div>
+
+<p>两者区别在于匹配的全词前后可以附加特殊字符, 不能是普通字符.</p>
+
+<h2 id="正则表达式">正则表达式</h2>
+
+<p>yara允许使用正则表达式, 不过要用正斜杠而非双引号括起来使用(像Perl编程那样)</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">RegularShow</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">re1</span> <span class="o">=</span> <span class="o">/</span><span class="n">md5</span><span class="o">:</span> <span class="p">[</span><span class="mi">0</span><span class="o">-</span><span class="mi">9</span><span class="n">a</span><span class="o">-</span><span class="n">fA</span><span class="o">-</span><span class="n">F</span><span class="p">]{</span><span class="mi">32</span><span class="p">}</span><span class="o">/</span>
+        <span class="err">$</span><span class="n">re2</span> <span class="o">=</span> <span class="o">/</span><span class="n">state</span><span class="o">:</span> <span class="p">(</span><span class="n">on</span><span class="o">|</span><span class="n">off</span><span class="p">)</span><span class="o">/</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">re1</span> <span class="n">and</span> <span class="err">$</span><span class="n">re2</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>该规则将捕获任何状态下找到的所有md5字符串.</p>
+
+<p>你也可以在正则表达式中使用文本修饰符, 如<strong>nocase</strong>,<strong>ascii</strong>,<strong>wide</strong>和<strong>fullword</strong>.</p>
+
+<h3 id="元字符">元字符</h3>
+
+<p>元字符是一个字符对计算机程序有特定含义(而非字面含义)的字符. 在正则表达式中, 有以下含义:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>** 引用下一个元字符
+^ 匹配文件的开头
+$ 匹配文件的末尾
+| 多选
+() 分组
+[] 方括号字符类
+</code></pre></div></div>
+
+<p>也可以使用以下量词:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>* 匹配0次或多次
++ 匹配1次或多次
+? 匹配0次或1次
+{n} 只匹配n次
+{n, } 至少匹配n次
+{ ,m} 至多匹配m次
+{n,m} 匹配n到m次
+</code></pre></div></div>
+
+<p>也可以使用以下的转义符:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>\t 水平制表符 (HT, TAB)
+\n 换行符 (LF, NL)
+\r 回车符 (CR)
+\f 换页符 (FF)
+\a 响铃
+\xNN 十六进制代码为NN的字符
+</code></pre></div></div>
+
+<p>也可以使用以下字符类:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>\w 匹配单词字符 (单词可由字母数字加"_"组成)
+\W 匹配非单词字符
+\s 匹配空白符
+\S 匹配非空白字符
+\d 匹配一个十进制数字字符
+\D 匹配一个非数字字符
+\b 匹配单词边界
+\B 匹配非单词边界
+</code></pre></div></div>
+
+<h3 id="字符串集">字符串集</h3>
+
+<p>如果你想要中列表中选择一定数量的字符串, 你可以执行以下操作:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule MigosPresent
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+
+    condition:
+        2 of ($m1,$m2,$m3)
+}
+</code></pre></div></div>
+
+<p>如果<code class="highlighter-rouge">$m1</code>, <code class="highlighter-rouge">$m2</code>和<code class="highlighter-rouge">$m3</code>任意存在两个, 那么就满足上述规则中的条件.</p>
+
+<p>你还可以使用通配符来表示一个字符集. 像如下这样使用通配符<code class="highlighter-rouge">*</code></p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule MigosPresent
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+
+    condition:
+        2 of ($m*)
+}
+</code></pre></div></div>
+
+<p>要表示<code class="highlighter-rouge">strings</code>中的所有变量, 你可以使用关键字<code class="highlighter-rouge">them</code></p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ThreeRappersPresent
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+        $q1 = "Cardi B"
+
+    condition:
+        3 of them // equivalent to 3 of ($*)
+}
+</code></pre></div></div>
+
+<p>你可以使用任何返回数值的表达式. 以下是使用关键字<code class="highlighter-rouge">any</code>和<code class="highlighter-rouge">all</code>的一个示例</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Squad
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+        $q1 = "Cardi B"
+
+    condition:
+        3 of them // equivalent to 3 of ($*)
+        all of them
+        any of ($*) and 2 of ($*)    // Fancy way of using any in a rule that requires 3.
+}
+</code></pre></div></div>
+
+<h3 id="带有of和forof的匿名字符串">带有of和for…of的匿名字符串</h3>
+
+<p>如果你没有专门引用字符串的事件, 你可以仅使用<code class="highlighter-rouge">$</code>来将它们全部引用.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule AnonymousStrings
+{
+    strings:
+        $ = "dummy1"
+        $ = "dummy2"
+
+    condition:
+        1 of them
+}
+</code></pre></div></div>
+
+<h2 id="条件">条件</h2>
+
+<table>
+  <tbody>
+    <tr>
+      <td>Yara允许通过and, or, 和not等相关运算符来表示布尔表达式, 算术运算符(+,-,*,%)和位运算符(&amp;,</td>
+      <td>, «, », ~, ^)也可用于数值表达式中.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="布尔运算">布尔运算</h3>
+
+<p>字符串标识符也可在条件中充当布尔变量, 其值取决于文件中相关字符串是否存在.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Example
+{
+    strings:
+        $hero1a = "Batman"
+        $hero1b = "Robin"
+        $hero2a = "Edward"
+        $hero2b = "Alphonse"
+
+    condition:
+        ($hero1a or $hero1b) and ($hero2a or $hero2b)
+}
+</code></pre></div></div>
+
+<h3 id="计数字符串实例">计数字符串实例</h3>
+
+<p>有时我们不仅需要知道某个字符串是否存在, 还需要知道字符串在文件或进程内存中出现的次数. 每个字符串的出现次数由一个变量表示, 变量名是用<code class="highlighter-rouge">#</code>代替<code class="highlighter-rouge">$</code>的字符串标识符. 例如:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Ransomware
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        #a == 2 and #b &gt; 2
+}
+</code></pre></div></div>
+
+<p>这个规则会匹配任何包含两个字符串<code class="highlighter-rouge">$a</code>以及出现至少两次字符串<code class="highlighter-rouge">$b</code>的文件或进程.</p>
+
+<h3 id="字符串偏移虚拟地址">字符串偏移(虚拟地址)</h3>
+
+<p>在大多数情况下, 当在条件中使用字符串标识符, 我们都只需知道关联的字符串是否在文件或进程内存内就行了. 但有时我们还是需要知道该字符串是否在文件的某个特定偏移处, 或是在进程地址空间的某个虚拟地址处. 在这种情况下, 我们就需要操作符<code class="highlighter-rouge">at</code>.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Offset
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        $a at 100 and $b at 200
+}
+</code></pre></div></div>
+
+<p>如果在文件的偏移100处(或者在一个正在运行的进程中, 位于虚拟地址100位置)发现了字符串<code class="highlighter-rouge">$a</code>, 我们的规则就能捕获到该字符串. 当然字符串<code class="highlighter-rouge">$b</code>也要在偏移200位置上才行. 你也可以使用十六进制表示而不一定要十进制.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Offset
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        $a at 0x64 and $b at 0xC8
+}
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">at</code>操作符指定到一个具体的偏移量, 而你可以使用操作符<code class="highlighter-rouge">in</code>来指定字符串的位置范围.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule InExample
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        $a in (0..100) and $b in (100..filesize)
+}
+</code></pre></div></div>
+
+<p>字符串<code class="highlighter-rouge">$a</code>必须在偏移0-100之间才能找到, 而<code class="highlighter-rouge">$b</code>则必须是在偏移100到文件末尾位置(才能找到).</p>
+
+<p>你也可以使用<code class="highlighter-rouge">@a[i]</code>来取得字符串<code class="highlighter-rouge">$a</code>第<code class="highlighter-rouge">i</code>个字符的偏移量或虚拟地址. 字符串索引以<code class="highlighter-rouge">1</code>开头 , 故第1个字符是<code class="highlighter-rouge">@a[1]</code>, 第2个是<code class="highlighter-rouge">@[a2]</code>并依此类推, 而不是以<code class="highlighter-rouge">@a[0]</code>开始. 如果你提供的索引值大过字符串总共出现的次数. 那结果就将是值<code class="highlighter-rouge">NaN</code>(Not a Number, 非数字).</p>
+
+<h3 id="匹配长度">匹配长度</h3>
+
+<p>对于包含跳转的许多正则表达式和十六进制字符串, 匹配长度用一个变量表示. 如果你有一个正则表达式<code class="highlighter-rouge">/fo*/</code>, 可以匹配字符串<code class="highlighter-rouge">fo</code>, <code class="highlighter-rouge">foo</code>和<code class="highlighter-rouge">fooo</code>, 那么各个的匹配长度都是不同的.</p>
+
+<p>在字符串标识符前加一个<code class="highlighter-rouge">!</code>得到匹配长度, 你就可以将匹配长度作为你条件的一部分. 跟你获取偏移时使用字符<code class="highlighter-rouge">@</code>类似, <code class="highlighter-rouge">!a[1]</code>是第一个匹配到的字符串<code class="highlighter-rouge">$a</code>的长度, 而<code class="highlighter-rouge">!a[2]</code>就是第二个匹配到的字符串的长度, 依此类推. <code class="highlighter-rouge">!a</code>是<code class="highlighter-rouge">!a[1]</code>的缩写.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Hak5
+{
+    strings:
+        $re1 = /hack*/    // Will catch on hacker, hacked, hack, hack*
+
+    condition:
+        !re1[1] == 4 and !re1[2] &gt; 6
+}
+</code></pre></div></div>
+<p>该规则可以匹配如下字符串:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>We hack things. We are hackers.
+</code></pre></div></div>
+
+<p>第一个<code class="highlighter-rouge">hack</code>是<code class="highlighter-rouge">re1[1]</code>且其长度等于4. 第二个<code class="highlighter-rouge">hack</code>长度则至少为6</p>
+
+<h3 id="文件大小">文件大小</h3>
+
+<p>字符串标识符并不是唯一可以在条件中出现的变量(实际上, 可以不定义任何字符串来编写一个规则), 还可以使用其他变量. <code class="highlighter-rouge">filesize</code>就保存着正在扫描的文件的大小. 大小以字节为单位.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule FileSizeExample
+{
+    condition:
+       filesize &gt; 200KB
+}
+</code></pre></div></div>
+
+<p>我们可以使用后缀<code class="highlighter-rouge">KB</code>将文件大小设置为<code class="highlighter-rouge">200KB</code>, 它会自动将常量的值乘上1024, 后缀<code class="highlighter-rouge">MB</code>会可以将值乘以<code class="highlighter-rouge">2^20</code>. 这两个后缀都只能用于十进制常量</p>
+
+<p>[!]重要提示: <code class="highlighter-rouge">filesize</code>仅在规则应用于文件的时候生效. 如果应用于正在运行的进程, 那么它会永远都匹配不了.</p>
+
+<h3 id="可执行程序入口点">可执行程序入口点</h3>
+
+<p>如果我们正扫描的文件是一个PE或ELF文件, 那么变量<code class="highlighter-rouge">entry_point</code>会存有可执行文件的入口点偏移值. 而如果我们正扫描一个运行的进程, 那么<code class="highlighter-rouge">entry_point</code>会存有可执行文件入口点的虚拟地址. 变量<code class="highlighter-rouge">entry_point</code>的经典用法是用于搜索入口点的一些pattern, 以检测壳或简单的感染病毒. 目前使用<code class="highlighter-rouge">entry_point</code>的方式是通过导入PE和/或ELF的库并使用它们各自的功能. Yara的<code class="highlighter-rouge">entrypoint</code>函数自第3版开始就已经过时了. 以下是它在第3版之前的样子.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule EntryPointExample1
+{
+    strings:
+        $a = { E8 00 00 00 00 }
+
+    condition:
+       $a at entrypoint
+}
+
+rule EntryPointExample2
+{
+    strings:
+        $a = { 9C 50 66 A1 ?? ?? ?? 00 66 A9 ?? ?? 58 0F 85 }
+
+    condition:
+       $a in (entrypoint..entrypoint + 10)
+}
+</code></pre></div></div>
+
+<p>[!]重要提示: 再次强调, 不要使用yara的<code class="highlighter-rouge">entrypoint</code>, 请在导入PE或ELF文件后使用对应的<code class="highlighter-rouge">pe.entry_point</code>和<code class="highlighter-rouge">elf.entry_point</code></p>
+
+<h3 id="访问指定位置的数据">访问指定位置的数据</h3>
+
+<p>如果你想从特定偏移位置读取数据, 并将其存为一个变量. 那么你可以使用以下任何一个方式:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">int8</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int16</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int32</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+
+<span class="n">uint8</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint16</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint32</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+
+<span class="n">int8be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int16be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int32be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+
+<span class="n">uint8be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint16be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint32be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>数据存储默认以小端序, 如果你想要读取大端序的整形数, 请使用下面几个以<code class="highlighter-rouge">be</code>结尾的对应函数.</p>
+
+<p>参数<code class="highlighter-rouge">&lt;offset or virtual address&gt;</code>可以是任何一个返回无符号整数的表达式, 包括可以是<code class="highlighter-rouge">uintXX</code>函数的返回值.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule IsPE
+{
+  condition:
+     // MZ signature at offset 0 and ...
+     uint16(0) == 0x5A4D and
+     // ... PE signature at offset stored in MZ header at 0x3C
+     uint32(uint32(0x3C)) == 0x00004550
+}
+</code></pre></div></div>
+
+<h3 id="forof-对许多字符串应用同一个条件">for…of: 对许多字符串应用同一个条件</h3>
+
+<p>要用for循环来检查一组字符串是否满足特定条件, 请使用如下语法:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for num of string_set : ( boolean_expression )
+</code></pre></div></div>
+
+<p>对每个<code class="highlighter-rouge">string_set</code>的字符串, 都会计算<code class="highlighter-rouge">boolean_expression</code>的值, 并且这些值必须至少有1个为真.</p>
+
+<p>当然你也可以使用其他关键字, 如<code class="highlighter-rouge">all</code>或<code class="highlighter-rouge">any</code>代替<code class="highlighter-rouge">num</code>来使用.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for any of ($a,$b,$c) : ( $ at elf.entry_point  )
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">$</code>表示集合中的所有字符串. 本例中, 它是字符串<code class="highlighter-rouge">$a</code>, <code class="highlighter-rouge">$b</code>和<code class="highlighter-rouge">$c</code>.</p>
+
+<p>你也可以使用符号<code class="highlighter-rouge">#</code>和<code class="highlighter-rouge">@</code>来引用每一个字符串的出现次数和首字符偏移量.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for all of them : ( # &gt; 3 )
+for all of ($a*) : ( @ &gt; @b )
+</code></pre></div></div>
+
+<h3 id="迭代字符串出现次数">迭代字符串出现次数</h3>
+
+<p>如果你想对偏移迭代并测试条件. 你可以如下操作:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Three_Peat
+{
+    strings:
+        $a = "dummy1"
+        $b = "dummy2"
+
+    condition:
+        for all i in (1,2,3) : ( @a[i] + 10 == @b[i] )
+}
+</code></pre></div></div>
+
+<p>这个规则说的是, <code class="highlighter-rouge">$b</code>出现前三个的字符串应当分别隔<code class="highlighter-rouge">$a</code>出现的前三个的字符串10个字节远. 另外一种写法如下:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for all i in (1..3) : ( @a[i] + 10 == @b[i] )
+</code></pre></div></div>
+
+<p>我们也可以使用表达式. 在本例中, 我们迭代每一次出现的<code class="highlighter-rouge">$a</code>(记住, <code class="highlighter-rouge">#a</code>代表<code class="highlighter-rouge">$a</code>的出现次数). 该规则指定, 每一次<code class="highlighter-rouge">$a</code>都应当出现在文件的前100个字节内.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for all i in (1..#a) : ( @a[i] &lt; 100 )
+</code></pre></div></div>
+
+<p>你也可以指定字符串的某一次出现需要满足条件(而非全部).</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for any i in (1..#a) : ( @a[i] &lt; 100 )
+for 2 i in (1..#a) : ( @a[i] &lt; 100 )
+</code></pre></div></div>
+
+<h3 id="引用其他规则">引用其他规则</h3>
+
+<p>就像C语言中引用函数那样. 函数, 或是这里说的规则, 都必须在使用前进行定义.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Rule1
+{
+    strings:
+        $a = "dummy1"
+
+    condition:
+        $a
+}
+
+rule Rule2
+{
+    strings:
+        $a = "dummy2"
+
+    condition:
+        $a and Rule1
+}
+</code></pre></div></div>
+
+<h2 id="yara要点">Yara要点</h2>
+
+<h3 id="全局规则">全局规则</h3>
+
+<p>Yara允许用户在所有规则中进行约束. 如果你希望所有规则都忽略掉那些超出特定大小限制的文件, 那么你可以对规则进行必要的修改, 或是编写一条像以下这样的全局规则:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>global rule SizeLimit
+{
+    condition:
+        filesize &lt; 2MB
+}
+</code></pre></div></div>
+
+<p>你可以根据需要定义各种全局规则. 这些规则会在其他规则之前运行.</p>
+
+<h3 id="私有规则">私有规则</h3>
+
+<p>私有规则在匹配时没有任何输出. 当和其它规则成对引用时, 这样就可以使输出更为清楚. 比如为了判断文件是否恶意, 有这样一条私有规则, 要求文件必须是ELF文件. 一旦满足这个要求, 随后就会执行下一条规则. 但我们在输出里想看的并不是该文件它是不是ELF, 我们只想知道文件是否恶意, 那么私有规则就派上用场了.  要想创建一条私有规则, 只需要在<code class="highlighter-rouge">rule</code>前添加一个<code class="highlighter-rouge">private</code>即可.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>private rule PrivateRule
+{
+    ...
+}
+</code></pre></div></div>
+
+<h3 id="规则标签">规则标签</h3>
+
+<p>如果你只想查看<code class="highlighter-rouge">ruleName</code>类型的规则输出, 你可以对你的规则打上标签</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule TagsExample1 : Foo Bar Baz
+{
+    ...
+}
+
+rule TagsExample2 : Bar
+{
+    ...
+}
+</code></pre></div></div>
+
+<h3 id="元数据">元数据</h3>
+
+<p>Yara允许在规则中存储一些额外数据.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule MetadataExample
+{
+    meta:
+        my_identifier_1 = "Some string data"
+        my_identifier_2 = 24
+        my_identifier_3 = true
+
+    strings:
+        $my_text_string = "text here"
+        $my_hex_string = { E2 34 A1 C8 23 FB }
+
+    condition:
+        $my_text_string or $my_hex_string
+}
+</code></pre></div></div>
+
+<h3 id="使用模块">使用模块</h3>
+
+<p>一些模块由YARA官方发布, 比如<code class="highlighter-rouge">PE</code>和<code class="highlighter-rouge">Cukoo</code>模块. 这些模块就如python那样导入即可, 不过在导入时模块名需要添加双引号</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import "pe"
+import "cuckoo"
+</code></pre></div></div>
+
+<p>一旦模块成功导入, 你就可以在函数前加模块名, 来使用这些功能.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pe.entry_point == 0x1000
+cuckoo.http_request(/someregexp/)
+</code></pre></div></div>
+
+<h3 id="未定义的值">未定义的值</h3>
+
+<p>一些值在运行时保留为<code class="highlighter-rouge">undefined</code>. 如果以下规则在ELF文件上执行并找到对应的字符串, 那么它的结果相当于<code class="highlighter-rouge">TRUE &amp; Undefined</code>.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import "pe"
+
+rule Test
+{
+  strings:
+      $a = "some string"
+
+  condition:
+      $a and pe.entry_point == 0x1000
+}
+</code></pre></div></div>
+
+<p>所以在用的时候要注意咯!</p>
+
+<h3 id="外部变量">外部变量</h3>
+
+<p>外部变量允许你定义一些, 依赖于<code class="highlighter-rouge">第三方</code>提供值的规则.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ExternalVariable1
+{
+    condition:
+       ext_var == 10
+}
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">ext_var</code>是一个外部变量, 它在运行时会分配有一个值, (见命令行的<code class="highlighter-rouge">-d</code>选项以及yara-python中<code class="highlighter-rouge">compile</code>和<code class="highlighter-rouge">match</code>方法的参数). 外部变量可以是<code class="highlighter-rouge">int</code>, <code class="highlighter-rouge">str</code>或<code class="highlighter-rouge">boolean</code>类型</p>
+
+<p>外部变量可以和操作符<code class="highlighter-rouge">contains</code>和<code class="highlighter-rouge">matches</code>一起使用. <code class="highlighter-rouge">contains</code>在字符串包含特定子串的情况下返回<code class="highlighter-rouge">true</code>. 而<code class="highlighter-rouge">matches</code>在字符串匹配给定的正则表达式时返回<code class="highlighter-rouge">true</code>.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ExternalVariable2
+{
+    condition:
+        string_ext_var contains "text"
+}
+
+rule ExternalVariable3
+{
+    condition:
+        string_ext_var matches /[a-z]+/
+}
+</code></pre></div></div>
+
+<p>你也可以将<code class="highlighter-rouge">matches</code>操作符和正则表达式一起使用</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ExternalVariableExample5
+{
+    condition:
+        /* case insensitive single-line mode */
+        string_ext_var matches /[a-z]+/is
+}
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">/[a-z]+/is</code>中的<code class="highlighter-rouge">i</code>表示匹配时不区分大小写. <code class="highlighter-rouge">s</code>表示是在单行(single line)模式</p>
+
+<p>记住, 你必须在运行时定义好所有的外部变量. 你可以使用<code class="highlighter-rouge">-d</code>参数来指定.</p>
+
+<h3 id="文件包含">文件包含</h3>
+
+<p>当然在yara里你可以使用类似C语言的导入方式(#include, 不过yara里并不使用#, 并且包含的文件需要加双引号)来包含其他文件. 你可以在包含时使用相对路径, 绝对路径. 如果是windows系统, 还可以是驱动设备的路径.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>include "Migos.yar"
+include "../CardiB.yar"
+include "/home/user/yara/IsRapper.yar"
+include "c:\\yara\\includes\\oldRappers.yar"
+include "c://yara/includes/oldRappers.yar"
+</code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+
+<p>好吧. 现在你应该知道如何写一些Yara规则了. 
+这里有一些恶意软件的仓库, 规则和工具, 可以让你来生成yara规则. 如果你安装了<code class="highlighter-rouge">yarGem</code>, 你只需要将它指向到恶意软件, 它就会为该恶意软件生成一个签名. 如果你想捕捉一个恶意软件家族, 你最好是将规则推广到整个家族去.</p>
+
+<p>资源:</p>
+
+<ul>
+  <li><a href="https://github.com/Yara-Rules/rules">Yara-Rules/rules</a></li>
+  <li><a href="https://www.bsk-consulting.de/2015/02/16/write-simple-sound-yara-rules/">How to Write Simple but Sound Yara Rules - BSK Consulting GmbH</a></li>
+  <li><a href="">yara-resource.png</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup_al.shtml">descs/worm_w32_downadup_al.shtml</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup.shtml">https://www.f-secure.com/v-descs/worm_w32_downadup.shtml</a></li>
+  <li><a href="https://support.microsoft.com/en-us/help/962007/virus-alert-about-the-win32-conficker-worm">https://support.microsoft.com/en-us/help/962007/virus-alert-about-the-win32-conficker-worm</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup_a.shtml">https://www.f-secure.com/v-descs/worm_w32_downadup_a.shtml</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup_gen.shtml">https://www.f-secure.com/v-descs/worm_w32_downadup_gen.shtml</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downaduprun_a.shtml">https://www.f-secure.com/v-descs/worm_w32_downaduprun_a.shtml</a></li>
+</ul>
+
+<p>Yara:</p>
+
+<ul>
+  <li><a href="https://www.experts-exchange.com/questions/29042297/How-to-test-yara-rule.html">How to test yara rule?</a></li>
+  <li><a href="https://www.securityartwork.es/2013/10/11/yara-101/">https://www.securityartwork.es/2013/10/11/yara-101/</a></li>
+  <li><a href="https://stixproject.github.io/documentation/idioms/yara-test-mechanism/">https://stixproject.github.io/documentation/idioms/yara-test-mechanism/</a></li>
+  <li><a href="https://github.com/Neo23x0/yarGen">Neo23x0/yarGen</a></li>
+  <li><a href="https://github.com/radare/radare2/blob/master/doc/yara.md">radare/radare2/blob/master/doc/yara.md</a></li>
+  <li><a href="https://www.bsk-consulting.de/2015/02/16/write-simple-sound-yara-rules/">How to Write Simple but Sound Yara Rules - BSK Consulting GmbH</a></li>
+  <li><a href="https://www.bsk-consulting.de/2015/10/17/how-to-write-simple-but-sound-yara-rules-part-2/">How to Write Simple but Sound Yara Rules - Part 2 - BSK Consulting GmbH</a></li>
+  <li><a href="https://www.bsk-consulting.de/2016/04/15/how-to-write-simple-but-sound-yara-rules-part-3/">How to Write Simple but Sound Yara Rules – Part 3 - BSK Consulting GmbH</a></li>
+</ul>
+
+<p>xxd:</p>
+
+<ul>
+  <li><a href="https://www.systutorials.com/docs/linux/man/1-xxd/">https://www.systutorials.com/docs/linux/man/1-xxd</a></li>
+</ul>
+
+<p>比较命令</p>
+
+<p><code class="highlighter-rouge">awk ‘FNR==NR{a[$1];next}($1 in a){print}’ malcourse.strings zoo.conficker.strings &gt; same-strings</code></p>
+
+<p>恶意软件仓库</p>
+
+<ul>
+  <li><a href="https://github.com/Malshare/MalShare-Toolkit">Malshare/MalShare-Toolkit</a></li>
+  <li><a href="http://malshare.com/about.php">http://malshare.com/about.php</a></li>
+</ul>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2018/04/07/fuzz-testing-beginners-guide/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a   class="pageNavInvalid"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://www.vancir.com/2018/04/07/fuzz-testing-beginners-guide/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>

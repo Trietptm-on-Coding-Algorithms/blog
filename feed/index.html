@@ -7,8 +7,938 @@
     <title>Vancir</title>
     <link href="http://www.vancir.com/feed/" rel="self" />
     <link href="http://www.vancir.com" />
-    <lastBuildDate>2018-04-07T17:53:49+08:00</lastBuildDate>
+    <lastBuildDate>2018-04-14T19:02:19+08:00</lastBuildDate>
     <webMaster>vancirprince@gmail.com</webMaster>
+    
+    <item>
+      <title>编写YARA规则检测恶意软件</title>
+      <link href="http://www.vancir.com/2018/04/14/creat-yara-rules/"/>
+      <pubDate>2018-04-14T00:00:00+08:00</pubDate>
+      <author>Vancir</author>
+      <guid>http://www.vancir.com/2018/04/14/creat-yara-rules</guid>
+      <content:encoded><![CDATA[<h2 id="简介">简介</h2>
+
+<p>我们都知道, 黑掉漏洞百出的代码比修补代码有趣得多. 但只会入侵的黑客并不一定能满足雇主的需求. 一些公司就希望安全研究人员能够基于他们收集和发现的恶意软件样本或泄露数据进行补丁.</p>
+
+<p>本文适合人群: 新手和爱好者</p>
+
+<h3 id="阅读本文需要的知识">阅读本文需要的知识</h3>
+
+<p>其实并不需要太多知识要求, 当你对恶意软件分析和逆向工程理解越深, 你就越有独特的方式捕获恶意软件. 不过这并不妨碍你写出惊人的yara规则出来. 我所见过的大部分规则都相当基础. 大部分看上去就像5分钟就能写好的python脚本. 编写规则, yara规则本身十分简单, 真正的技巧和细节都在分析部分 .</p>
+
+<ul>
+  <li>熟悉GNU Linux</li>
+  <li>熟悉C语言语法(不作要求, 但十分有用)</li>
+  <li>正则表达式 (同上, 不作要求, 但很有用)</li>
+</ul>
+
+<h3 id="声明">声明</h3>
+
+<p>我是自学yara规则, 学校并没有教我这些. 我学习yara大约有30个小时, 花费了我一个周末的时间.</p>
+
+<h2 id="大纲">大纲</h2>
+
+<p>我将介绍以下内容:</p>
+
+<ol>
+  <li>规则标识符</li>
+  <li>Yara关键字</li>
+  <li>字符串
+    <ol>
+      <li>十六进制值</li>
+      <li>文本字符串</li>
+      <li>字符串修饰符</li>
+      <li>正则表达式</li>
+      <li>字符串集</li>
+      <li>匿名字符串</li>
+    </ol>
+  </li>
+  <li>条件
+    <ol>
+      <li>布尔值</li>
+      <li>字符串实例计数</li>
+      <li>字符串偏移或虚拟地址</li>
+      <li>匹配长度</li>
+      <li>文件大小</li>
+      <li>可执行程序入口点</li>
+      <li>访问指定位置的数据</li>
+      <li>对多字符串应用同一条件</li>
+      <li>迭代字符串出现次数</li>
+    </ol>
+  </li>
+  <li>引用其他规则</li>
+  <li>Yara要点
+    <ol>
+      <li>全局规则</li>
+      <li>私有规则</li>
+      <li>规则标签</li>
+      <li>元数据</li>
+      <li>使用模块</li>
+      <li>未定义值</li>
+      <li>外部变量/参数值</li>
+      <li>文件包含</li>
+    </ol>
+  </li>
+</ol>
+
+<p>让我们现在开始吧.</p>
+
+<hr />
+
+<p>Yara与C语言语法十分相像, 以下是一个简单的规则, 这个规则没有进行任何操作:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">HelloRule</span> 
+<span class="p">{</span>
+<span class="n">condition</span><span class="o">:</span>
+<span class="nb">false</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="规则标识符">规则标识符</h2>
+
+<p>规则标识符是上面简单规则示例中跟在<code class="highlighter-rouge">rule</code>后的词,  比如单词”dummy”也可以是一个规则标识符, 标识符命名有如下要求:</p>
+
+<ul>
+  <li>是由英文字母或数字组成的字符串</li>
+  <li>可以使用下划线字符</li>
+  <li>第一个字符不能是数字</li>
+  <li>对大小写敏感</li>
+  <li>不能超出128个字符长度</li>
+</ul>
+
+<h2 id="yara关键字">Yara关键字</h2>
+
+<p>下面这些词不能用作规则标识符, 因为这些单词在yara语言里有特定用处</p>
+
+<blockquote>
+  <p>all, and, any, ascii, at, condition, contains entrypoint, false, filesize, fullword, for, global, in import, include, int8,  nt16, int32, int8be, int16be int32be, matches, meta, nocase, not, or, of private, rule, strings, them, true, uint8, uint16 uint32,  int8be, uint16be, uint32be, wide</p>
+</blockquote>
+
+<p>通常yara有两部分: <strong>字符串定义</strong>和<strong>条件</strong></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">HelloRule2</span>    <span class="c1">// This is an example
+</span><span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">my_text_string</span> <span class="o">=</span> <span class="s">"text here"</span>
+        <span class="err">$</span><span class="n">my_hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">E2</span> <span class="mi">34</span> <span class="n">A1</span> <span class="n">C8</span> <span class="mi">23</span> <span class="n">FB</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">my_text_string</span> <span class="n">or</span> <span class="err">$</span><span class="n">my_hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>当发现有规则里定义的任意字符串, 规则就会生效. 如你所见, 你还可以在规则里添加注释.</p>
+
+<h2 id="十六进制字符串">十六进制字符串</h2>
+
+<h3 id="通配符">通配符</h3>
+
+<p>十六进制字符串可以用通配符表示, 通配符符号用”?”表示</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">GambitWildcard</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">EF</span> <span class="mi">44</span> <span class="o">??</span> <span class="n">D8</span> <span class="n">A</span><span class="o">?</span> <span class="n">FB</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EF 44 01 D8 AA FB
+EF 44 AA D8 AB FB
+</code></pre></div></div>
+
+<h3 id="不定长通配符">不定长通配符</h3>
+
+<p>不定长的字符串可以用下面这个方法表示</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">MarioJump</span>
+<span class="p">{</span>
+        <span class="n">strings</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">F4</span> <span class="mi">23</span> <span class="p">[</span><span class="mi">4</span><span class="o">-</span><span class="mi">6</span><span class="p">]</span> <span class="mi">62</span> <span class="n">B4</span> <span class="p">}</span>
+
+        <span class="n">condition</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>F4 23 01 02 03 04 62 B4
+F4 23 AA BB CC DD EE FF 62 B4
+</code></pre></div></div>
+
+<p>当然无限长的字符串也是可以的.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">BuzzLightyear</span>
+<span class="p">{</span>
+        <span class="n">strings</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">F4</span> <span class="mi">23</span> <span class="p">[</span><span class="o">-</span><span class="p">]</span> <span class="mi">62</span> <span class="n">B4</span> <span class="p">}</span>
+
+        <span class="n">condition</span><span class="o">:</span>
+           <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>F4 23 AA FF 62 B4
+F4 23 AA AA AA AA AA...FF FF 62 B4
+</code></pre></div></div>
+
+<h3 id="有条件的字符串">有条件的字符串</h3>
+
+<p>你可以创建一个字符串应对多种情况</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">WorriedRabbit</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">BA</span> <span class="mi">21</span> <span class="p">(</span> <span class="n">DA</span> <span class="n">BC</span> <span class="o">|</span> <span class="n">C6</span> <span class="p">)</span> <span class="n">A5</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的两个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>BA 21 DA BC A5
+BA 21 C6 A5
+</code></pre></div></div>
+
+<h3 id="混合">混合</h3>
+
+<p>当然, 你也可以将上面这几种方法结合起来.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">WorriedGabmitLightyearJump</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span> <span class="o">=</span> <span class="p">{</span> <span class="n">BA</span> <span class="o">??</span> <span class="p">(</span> <span class="n">DA</span> <span class="p">[</span><span class="mi">2</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="o">|</span> <span class="n">C6</span> <span class="p">)</span> <span class="n">A5</span> <span class="p">}</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">hex_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的三个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>BA 01 DA 01 02 03 04 A5
+BA AA C6 A5
+BA FF DA 01 02 A5
+</code></pre></div></div>
+
+<h2 id="文本字符串">文本字符串</h2>
+
+<p>除开使用十六进制字符串, 我们也还可以使用文本字符串</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">KimPossible</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">alert_string</span> <span class="o">=</span> <span class="s">"Whats the Sitch"</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">alert_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>你也可以像C语言那样使用如下的转义符:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">\</span><span class="s">" 双引号</span><span class="err">
+</span><span class="se">\\</span><span class="s"> 反斜杠</span><span class="err">
+</span><span class="se">\t</span><span class="s"> 水平制表符</span><span class="err">
+</span><span class="se">\n</span><span class="s"> 换行符</span><span class="err">
+</span><span class="se">\xdd</span><span class="s"> 以十六进制表示的任何字节</span><span class="err">
+</span></code></pre></div></div>
+
+<h2 id="修饰符">修饰符</h2>
+
+<h3 id="不区分大小写的字符串">不区分大小写的字符串</h3>
+
+<p>Yara默认对大小写敏感, 但你可以使用修饰符将其关闭</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ThickSkin</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">strong_string</span> <span class="o">=</span> <span class="s">"Iron"</span> <span class="n">nocase</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">strong_string</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="宽字符串">宽字符串</h3>
+
+<p><code class="highlighter-rouge">wide</code>修饰符可以用来搜寻以2字节表示1字符这种方式编码的字符串, 这种宽字符串在许多二进制文件中都有出现. 如果字符串”FatTony”以2字节表示1字符的方式编码并在二进制文件中出现, 我们就可以使用<code class="highlighter-rouge">wide</code>修饰符将其捕获. 因为”FatTony”也可能是”fattony”, 我们也可以添加<code class="highlighter-rouge">nocase</code>修饰符以免错过.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">FatTony</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span> <span class="o">=</span> <span class="s">"FatTony"</span> <span class="n">wide</span> <span class="n">nocase</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>[!]重要提示: 请记住, 该修饰符只是将字符串中字符的ASCII码和\x00交错起来组成宽字符, 它并不支持包含非英文字符的UTF-16字符串. 要想对既有ASCII字符和宽字符的字符串进行搜索, 请使用如下命令:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ASCIIFatTony</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span> <span class="o">=</span> <span class="s">"FatTony"</span> <span class="n">wide</span> <span class="n">ascii</span> <span class="n">nocase</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>字符串默认是ASCII编码, 所以如果你想单独用<code class="highlighter-rouge">ascii</code>搜索”FatTony”, 你并不需要添加<code class="highlighter-rouge">ascii</code>修饰符</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ASCIIFatTony</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span> <span class="o">=</span> <span class="s">"FatTony"</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">fat_villain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>如果你想在不使用<code class="highlighter-rouge">wide</code>和<code class="highlighter-rouge">nocase</code>修饰符的情况下进行搜索, 上述这个规则可以生效.</p>
+
+<h3 id="fullwords修饰符">Fullwords修饰符</h3>
+
+<p>该修饰符可用于匹配那些前后没有附加其他字符的单词(全词匹配).</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">ShadyDomain</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">shady_domain</span> <span class="o">=</span> <span class="s">"faceebook"</span> <span class="n">fullword</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+       <span class="err">$</span><span class="n">shady_domain</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个规则可以匹配下面的三个字符串</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>www.faceebook.com
+www.myportal.faceebook.com
+https://secure.faceebook.com
+</code></pre></div></div>
+
+<p>但这个规则<strong>不能</strong>匹配以下的字符串:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>www.myfaceebook.com
+thefaceebook.com
+</code></pre></div></div>
+
+<p>两者区别在于匹配的全词前后可以附加特殊字符, 不能是普通字符.</p>
+
+<h2 id="正则表达式">正则表达式</h2>
+
+<p>yara允许使用正则表达式, 不过要用正斜杠而非双引号括起来使用(像Perl编程那样)</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">rule</span> <span class="n">RegularShow</span>
+<span class="p">{</span>
+    <span class="n">strings</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">re1</span> <span class="o">=</span> <span class="o">/</span><span class="n">md5</span><span class="o">:</span> <span class="p">[</span><span class="mi">0</span><span class="o">-</span><span class="mi">9</span><span class="n">a</span><span class="o">-</span><span class="n">fA</span><span class="o">-</span><span class="n">F</span><span class="p">]{</span><span class="mi">32</span><span class="p">}</span><span class="o">/</span>
+        <span class="err">$</span><span class="n">re2</span> <span class="o">=</span> <span class="o">/</span><span class="n">state</span><span class="o">:</span> <span class="p">(</span><span class="n">on</span><span class="o">|</span><span class="n">off</span><span class="p">)</span><span class="o">/</span>
+
+    <span class="n">condition</span><span class="o">:</span>
+        <span class="err">$</span><span class="n">re1</span> <span class="n">and</span> <span class="err">$</span><span class="n">re2</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>该规则将捕获任何状态下找到的所有md5字符串.</p>
+
+<p>你也可以在正则表达式中使用文本修饰符, 如<strong>nocase</strong>,<strong>ascii</strong>,<strong>wide</strong>和<strong>fullword</strong>.</p>
+
+<h3 id="元字符">元字符</h3>
+
+<p>元字符是一个字符对计算机程序有特定含义(而非字面含义)的字符. 在正则表达式中, 有以下含义:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>** 引用下一个元字符
+^ 匹配文件的开头
+$ 匹配文件的末尾
+| 多选
+() 分组
+[] 方括号字符类
+</code></pre></div></div>
+
+<p>也可以使用以下量词:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>* 匹配0次或多次
++ 匹配1次或多次
+? 匹配0次或1次
+{n} 只匹配n次
+{n, } 至少匹配n次
+{ ,m} 至多匹配m次
+{n,m} 匹配n到m次
+</code></pre></div></div>
+
+<p>也可以使用以下的转义符:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>\t 水平制表符 (HT, TAB)
+\n 换行符 (LF, NL)
+\r 回车符 (CR)
+\f 换页符 (FF)
+\a 响铃
+\xNN 十六进制代码为NN的字符
+</code></pre></div></div>
+
+<p>也可以使用以下字符类:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>\w 匹配单词字符 (单词可由字母数字加"_"组成)
+\W 匹配非单词字符
+\s 匹配空白符
+\S 匹配非空白字符
+\d 匹配一个十进制数字字符
+\D 匹配一个非数字字符
+\b 匹配单词边界
+\B 匹配非单词边界
+</code></pre></div></div>
+
+<h3 id="字符串集">字符串集</h3>
+
+<p>如果你想要中列表中选择一定数量的字符串, 你可以执行以下操作:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule MigosPresent
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+
+    condition:
+        2 of ($m1,$m2,$m3)
+}
+</code></pre></div></div>
+
+<p>如果<code class="highlighter-rouge">$m1</code>, <code class="highlighter-rouge">$m2</code>和<code class="highlighter-rouge">$m3</code>任意存在两个, 那么就满足上述规则中的条件.</p>
+
+<p>你还可以使用通配符来表示一个字符集. 像如下这样使用通配符<code class="highlighter-rouge">*</code></p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule MigosPresent
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+
+    condition:
+        2 of ($m*)
+}
+</code></pre></div></div>
+
+<p>要表示<code class="highlighter-rouge">strings</code>中的所有变量, 你可以使用关键字<code class="highlighter-rouge">them</code></p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ThreeRappersPresent
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+        $q1 = "Cardi B"
+
+    condition:
+        3 of them // equivalent to 3 of ($*)
+}
+</code></pre></div></div>
+
+<p>你可以使用任何返回数值的表达式. 以下是使用关键字<code class="highlighter-rouge">any</code>和<code class="highlighter-rouge">all</code>的一个示例</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Squad
+{
+    strings:
+        $m1 = "Quavo"
+        $m2 = "Offset"
+        $m3 = "Takeoff"
+        $q1 = "Cardi B"
+
+    condition:
+        3 of them // equivalent to 3 of ($*)
+        all of them
+        any of ($*) and 2 of ($*)    // Fancy way of using any in a rule that requires 3.
+}
+</code></pre></div></div>
+
+<h3 id="带有of和forof的匿名字符串">带有of和for…of的匿名字符串</h3>
+
+<p>如果你没有专门引用字符串的事件, 你可以仅使用<code class="highlighter-rouge">$</code>来将它们全部引用.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule AnonymousStrings
+{
+    strings:
+        $ = "dummy1"
+        $ = "dummy2"
+
+    condition:
+        1 of them
+}
+</code></pre></div></div>
+
+<h2 id="条件">条件</h2>
+
+<table>
+  <tbody>
+    <tr>
+      <td>Yara允许通过and, or, 和not等相关运算符来表示布尔表达式, 算术运算符(+,-,*,%)和位运算符(&amp;,</td>
+      <td>, «, », ~, ^)也可用于数值表达式中.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="布尔运算">布尔运算</h3>
+
+<p>字符串标识符也可在条件中充当布尔变量, 其值取决于文件中相关字符串是否存在.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Example
+{
+    strings:
+        $hero1a = "Batman"
+        $hero1b = "Robin"
+        $hero2a = "Edward"
+        $hero2b = "Alphonse"
+
+    condition:
+        ($hero1a or $hero1b) and ($hero2a or $hero2b)
+}
+</code></pre></div></div>
+
+<h3 id="计数字符串实例">计数字符串实例</h3>
+
+<p>有时我们不仅需要知道某个字符串是否存在, 还需要知道字符串在文件或进程内存中出现的次数. 每个字符串的出现次数由一个变量表示, 变量名是用<code class="highlighter-rouge">#</code>代替<code class="highlighter-rouge">$</code>的字符串标识符. 例如:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Ransomware
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        #a == 2 and #b &gt; 2
+}
+</code></pre></div></div>
+
+<p>这个规则会匹配任何包含两个字符串<code class="highlighter-rouge">$a</code>以及出现至少两次字符串<code class="highlighter-rouge">$b</code>的文件或进程.</p>
+
+<h3 id="字符串偏移虚拟地址">字符串偏移(虚拟地址)</h3>
+
+<p>在大多数情况下, 当在条件中使用字符串标识符, 我们都只需知道关联的字符串是否在文件或进程内存内就行了. 但有时我们还是需要知道该字符串是否在文件的某个特定偏移处, 或是在进程地址空间的某个虚拟地址处. 在这种情况下, 我们就需要操作符<code class="highlighter-rouge">at</code>.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Offset
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        $a at 100 and $b at 200
+}
+</code></pre></div></div>
+
+<p>如果在文件的偏移100处(或者在一个正在运行的进程中, 位于虚拟地址100位置)发现了字符串<code class="highlighter-rouge">$a</code>, 我们的规则就能捕获到该字符串. 当然字符串<code class="highlighter-rouge">$b</code>也要在偏移200位置上才行. 你也可以使用十六进制表示而不一定要十进制.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Offset
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        $a at 0x64 and $b at 0xC8
+}
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">at</code>操作符指定到一个具体的偏移量, 而你可以使用操作符<code class="highlighter-rouge">in</code>来指定字符串的位置范围.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule InExample
+{
+    strings:
+        $a = "encrypted"
+        $b = "btc"
+
+    condition:
+        $a in (0..100) and $b in (100..filesize)
+}
+</code></pre></div></div>
+
+<p>字符串<code class="highlighter-rouge">$a</code>必须在偏移0-100之间才能找到, 而<code class="highlighter-rouge">$b</code>则必须是在偏移100到文件末尾位置(才能找到).</p>
+
+<p>你也可以使用<code class="highlighter-rouge">@a[i]</code>来取得字符串<code class="highlighter-rouge">$a</code>第<code class="highlighter-rouge">i</code>个字符的偏移量或虚拟地址. 字符串索引以<code class="highlighter-rouge">1</code>开头 , 故第1个字符是<code class="highlighter-rouge">@a[1]</code>, 第2个是<code class="highlighter-rouge">@[a2]</code>并依此类推, 而不是以<code class="highlighter-rouge">@a[0]</code>开始. 如果你提供的索引值大过字符串总共出现的次数. 那结果就将是值<code class="highlighter-rouge">NaN</code>(Not a Number, 非数字).</p>
+
+<h3 id="匹配长度">匹配长度</h3>
+
+<p>对于包含跳转的许多正则表达式和十六进制字符串, 匹配长度用一个变量表示. 如果你有一个正则表达式<code class="highlighter-rouge">/fo*/</code>, 可以匹配字符串<code class="highlighter-rouge">fo</code>, <code class="highlighter-rouge">foo</code>和<code class="highlighter-rouge">fooo</code>, 那么各个的匹配长度都是不同的.</p>
+
+<p>在字符串标识符前加一个<code class="highlighter-rouge">!</code>得到匹配长度, 你就可以将匹配长度作为你条件的一部分. 跟你获取偏移时使用字符<code class="highlighter-rouge">@</code>类似, <code class="highlighter-rouge">!a[1]</code>是第一个匹配到的字符串<code class="highlighter-rouge">$a</code>的长度, 而<code class="highlighter-rouge">!a[2]</code>就是第二个匹配到的字符串的长度, 依此类推. <code class="highlighter-rouge">!a</code>是<code class="highlighter-rouge">!a[1]</code>的缩写.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Hak5
+{
+    strings:
+        $re1 = /hack*/    // Will catch on hacker, hacked, hack, hack*
+
+    condition:
+        !re1[1] == 4 and !re1[2] &gt; 6
+}
+</code></pre></div></div>
+<p>该规则可以匹配如下字符串:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>We hack things. We are hackers.
+</code></pre></div></div>
+
+<p>第一个<code class="highlighter-rouge">hack</code>是<code class="highlighter-rouge">re1[1]</code>且其长度等于4. 第二个<code class="highlighter-rouge">hack</code>长度则至少为6</p>
+
+<h3 id="文件大小">文件大小</h3>
+
+<p>字符串标识符并不是唯一可以在条件中出现的变量(实际上, 可以不定义任何字符串来编写一个规则), 还可以使用其他变量. <code class="highlighter-rouge">filesize</code>就保存着正在扫描的文件的大小. 大小以字节为单位.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule FileSizeExample
+{
+    condition:
+       filesize &gt; 200KB
+}
+</code></pre></div></div>
+
+<p>我们可以使用后缀<code class="highlighter-rouge">KB</code>将文件大小设置为<code class="highlighter-rouge">200KB</code>, 它会自动将常量的值乘上1024, 后缀<code class="highlighter-rouge">MB</code>会可以将值乘以<code class="highlighter-rouge">2^20</code>. 这两个后缀都只能用于十进制常量</p>
+
+<p>[!]重要提示: <code class="highlighter-rouge">filesize</code>仅在规则应用于文件的时候生效. 如果应用于正在运行的进程, 那么它会永远都匹配不了.</p>
+
+<h3 id="可执行程序入口点">可执行程序入口点</h3>
+
+<p>如果我们正扫描的文件是一个PE或ELF文件, 那么变量<code class="highlighter-rouge">entry_point</code>会存有可执行文件的入口点偏移值. 而如果我们正扫描一个运行的进程, 那么<code class="highlighter-rouge">entry_point</code>会存有可执行文件入口点的虚拟地址. 变量<code class="highlighter-rouge">entry_point</code>的经典用法是用于搜索入口点的一些pattern, 以检测壳或简单的感染病毒. 目前使用<code class="highlighter-rouge">entry_point</code>的方式是通过导入PE和/或ELF的库并使用它们各自的功能. Yara的<code class="highlighter-rouge">entrypoint</code>函数自第3版开始就已经过时了. 以下是它在第3版之前的样子.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule EntryPointExample1
+{
+    strings:
+        $a = { E8 00 00 00 00 }
+
+    condition:
+       $a at entrypoint
+}
+
+rule EntryPointExample2
+{
+    strings:
+        $a = { 9C 50 66 A1 ?? ?? ?? 00 66 A9 ?? ?? 58 0F 85 }
+
+    condition:
+       $a in (entrypoint..entrypoint + 10)
+}
+</code></pre></div></div>
+
+<p>[!]重要提示: 再次强调, 不要使用yara的<code class="highlighter-rouge">entrypoint</code>, 请在导入PE或ELF文件后使用对应的<code class="highlighter-rouge">pe.entry_point</code>和<code class="highlighter-rouge">elf.entry_point</code></p>
+
+<h3 id="访问指定位置的数据">访问指定位置的数据</h3>
+
+<p>如果你想从特定偏移位置读取数据, 并将其存为一个变量. 那么你可以使用以下任何一个方式:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">int8</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int16</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int32</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+
+<span class="n">uint8</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint16</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint32</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+
+<span class="n">int8be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int16be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">int32be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+
+<span class="n">uint8be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint16be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="n">uint32be</span><span class="p">(</span><span class="o">&lt;</span><span class="n">offset</span> <span class="n">or</span> <span class="k">virtual</span> <span class="n">address</span><span class="o">&gt;</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>数据存储默认以小端序, 如果你想要读取大端序的整形数, 请使用下面几个以<code class="highlighter-rouge">be</code>结尾的对应函数.</p>
+
+<p>参数<code class="highlighter-rouge">&lt;offset or virtual address&gt;</code>可以是任何一个返回无符号整数的表达式, 包括可以是<code class="highlighter-rouge">uintXX</code>函数的返回值.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule IsPE
+{
+  condition:
+     // MZ signature at offset 0 and ...
+     uint16(0) == 0x5A4D and
+     // ... PE signature at offset stored in MZ header at 0x3C
+     uint32(uint32(0x3C)) == 0x00004550
+}
+</code></pre></div></div>
+
+<h3 id="forof-对许多字符串应用同一个条件">for…of: 对许多字符串应用同一个条件</h3>
+
+<p>要用for循环来检查一组字符串是否满足特定条件, 请使用如下语法:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for num of string_set : ( boolean_expression )
+</code></pre></div></div>
+
+<p>对每个<code class="highlighter-rouge">string_set</code>的字符串, 都会计算<code class="highlighter-rouge">boolean_expression</code>的值, 并且这些值必须至少有1个为真.</p>
+
+<p>当然你也可以使用其他关键字, 如<code class="highlighter-rouge">all</code>或<code class="highlighter-rouge">any</code>代替<code class="highlighter-rouge">num</code>来使用.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for any of ($a,$b,$c) : ( $ at elf.entry_point  )
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">$</code>表示集合中的所有字符串. 本例中, 它是字符串<code class="highlighter-rouge">$a</code>, <code class="highlighter-rouge">$b</code>和<code class="highlighter-rouge">$c</code>.</p>
+
+<p>你也可以使用符号<code class="highlighter-rouge">#</code>和<code class="highlighter-rouge">@</code>来引用每一个字符串的出现次数和首字符偏移量.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for all of them : ( # &gt; 3 )
+for all of ($a*) : ( @ &gt; @b )
+</code></pre></div></div>
+
+<h3 id="迭代字符串出现次数">迭代字符串出现次数</h3>
+
+<p>如果你想对偏移迭代并测试条件. 你可以如下操作:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Three_Peat
+{
+    strings:
+        $a = "dummy1"
+        $b = "dummy2"
+
+    condition:
+        for all i in (1,2,3) : ( @a[i] + 10 == @b[i] )
+}
+</code></pre></div></div>
+
+<p>这个规则说的是, <code class="highlighter-rouge">$b</code>出现前三个的字符串应当分别隔<code class="highlighter-rouge">$a</code>出现的前三个的字符串10个字节远. 另外一种写法如下:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for all i in (1..3) : ( @a[i] + 10 == @b[i] )
+</code></pre></div></div>
+
+<p>我们也可以使用表达式. 在本例中, 我们迭代每一次出现的<code class="highlighter-rouge">$a</code>(记住, <code class="highlighter-rouge">#a</code>代表<code class="highlighter-rouge">$a</code>的出现次数). 该规则指定, 每一次<code class="highlighter-rouge">$a</code>都应当出现在文件的前100个字节内.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for all i in (1..#a) : ( @a[i] &lt; 100 )
+</code></pre></div></div>
+
+<p>你也可以指定字符串的某一次出现需要满足条件(而非全部).</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for any i in (1..#a) : ( @a[i] &lt; 100 )
+for 2 i in (1..#a) : ( @a[i] &lt; 100 )
+</code></pre></div></div>
+
+<h3 id="引用其他规则">引用其他规则</h3>
+
+<p>就像C语言中引用函数那样. 函数, 或是这里说的规则, 都必须在使用前进行定义.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule Rule1
+{
+    strings:
+        $a = "dummy1"
+
+    condition:
+        $a
+}
+
+rule Rule2
+{
+    strings:
+        $a = "dummy2"
+
+    condition:
+        $a and Rule1
+}
+</code></pre></div></div>
+
+<h2 id="yara要点">Yara要点</h2>
+
+<h3 id="全局规则">全局规则</h3>
+
+<p>Yara允许用户在所有规则中进行约束. 如果你希望所有规则都忽略掉那些超出特定大小限制的文件, 那么你可以对规则进行必要的修改, 或是编写一条像以下这样的全局规则:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>global rule SizeLimit
+{
+    condition:
+        filesize &lt; 2MB
+}
+</code></pre></div></div>
+
+<p>你可以根据需要定义各种全局规则. 这些规则会在其他规则之前运行.</p>
+
+<h3 id="私有规则">私有规则</h3>
+
+<p>私有规则在匹配时没有任何输出. 当和其它规则成对引用时, 这样就可以使输出更为清楚. 比如为了判断文件是否恶意, 有这样一条私有规则, 要求文件必须是ELF文件. 一旦满足这个要求, 随后就会执行下一条规则. 但我们在输出里想看的并不是该文件它是不是ELF, 我们只想知道文件是否恶意, 那么私有规则就派上用场了.  要想创建一条私有规则, 只需要在<code class="highlighter-rouge">rule</code>前添加一个<code class="highlighter-rouge">private</code>即可.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>private rule PrivateRule
+{
+    ...
+}
+</code></pre></div></div>
+
+<h3 id="规则标签">规则标签</h3>
+
+<p>如果你只想查看<code class="highlighter-rouge">ruleName</code>类型的规则输出, 你可以对你的规则打上标签</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule TagsExample1 : Foo Bar Baz
+{
+    ...
+}
+
+rule TagsExample2 : Bar
+{
+    ...
+}
+</code></pre></div></div>
+
+<h3 id="元数据">元数据</h3>
+
+<p>Yara允许在规则中存储一些额外数据.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule MetadataExample
+{
+    meta:
+        my_identifier_1 = "Some string data"
+        my_identifier_2 = 24
+        my_identifier_3 = true
+
+    strings:
+        $my_text_string = "text here"
+        $my_hex_string = { E2 34 A1 C8 23 FB }
+
+    condition:
+        $my_text_string or $my_hex_string
+}
+</code></pre></div></div>
+
+<h3 id="使用模块">使用模块</h3>
+
+<p>一些模块由YARA官方发布, 比如<code class="highlighter-rouge">PE</code>和<code class="highlighter-rouge">Cukoo</code>模块. 这些模块就如python那样导入即可, 不过在导入时模块名需要添加双引号</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import "pe"
+import "cuckoo"
+</code></pre></div></div>
+
+<p>一旦模块成功导入, 你就可以在函数前加模块名, 来使用这些功能.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pe.entry_point == 0x1000
+cuckoo.http_request(/someregexp/)
+</code></pre></div></div>
+
+<h3 id="未定义的值">未定义的值</h3>
+
+<p>一些值在运行时保留为<code class="highlighter-rouge">undefined</code>. 如果以下规则在ELF文件上执行并找到对应的字符串, 那么它的结果相当于<code class="highlighter-rouge">TRUE &amp; Undefined</code>.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import "pe"
+
+rule Test
+{
+  strings:
+      $a = "some string"
+
+  condition:
+      $a and pe.entry_point == 0x1000
+}
+</code></pre></div></div>
+
+<p>所以在用的时候要注意咯!</p>
+
+<h3 id="外部变量">外部变量</h3>
+
+<p>外部变量允许你定义一些, 依赖于<code class="highlighter-rouge">第三方</code>提供值的规则.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ExternalVariable1
+{
+    condition:
+       ext_var == 10
+}
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">ext_var</code>是一个外部变量, 它在运行时会分配有一个值, (见命令行的<code class="highlighter-rouge">-d</code>选项以及yara-python中<code class="highlighter-rouge">compile</code>和<code class="highlighter-rouge">match</code>方法的参数). 外部变量可以是<code class="highlighter-rouge">int</code>, <code class="highlighter-rouge">str</code>或<code class="highlighter-rouge">boolean</code>类型</p>
+
+<p>外部变量可以和操作符<code class="highlighter-rouge">contains</code>和<code class="highlighter-rouge">matches</code>一起使用. <code class="highlighter-rouge">contains</code>在字符串包含特定子串的情况下返回<code class="highlighter-rouge">true</code>. 而<code class="highlighter-rouge">matches</code>在字符串匹配给定的正则表达式时返回<code class="highlighter-rouge">true</code>.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ExternalVariable2
+{
+    condition:
+        string_ext_var contains "text"
+}
+
+rule ExternalVariable3
+{
+    condition:
+        string_ext_var matches /[a-z]+/
+}
+</code></pre></div></div>
+
+<p>你也可以将<code class="highlighter-rouge">matches</code>操作符和正则表达式一起使用</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule ExternalVariableExample5
+{
+    condition:
+        /* case insensitive single-line mode */
+        string_ext_var matches /[a-z]+/is
+}
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">/[a-z]+/is</code>中的<code class="highlighter-rouge">i</code>表示匹配时不区分大小写. <code class="highlighter-rouge">s</code>表示是在单行(single line)模式</p>
+
+<p>记住, 你必须在运行时定义好所有的外部变量. 你可以使用<code class="highlighter-rouge">-d</code>参数来指定.</p>
+
+<h3 id="文件包含">文件包含</h3>
+
+<p>当然在yara里你可以使用类似C语言的导入方式(#include, 不过yara里并不使用#, 并且包含的文件需要加双引号)来包含其他文件. 你可以在包含时使用相对路径, 绝对路径. 如果是windows系统, 还可以是驱动设备的路径.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>include "Migos.yar"
+include "../CardiB.yar"
+include "/home/user/yara/IsRapper.yar"
+include "c:\\yara\\includes\\oldRappers.yar"
+include "c://yara/includes/oldRappers.yar"
+</code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+
+<p>好吧. 现在你应该知道如何写一些Yara规则了. 
+这里有一些恶意软件的仓库, 规则和工具, 可以让你来生成yara规则. 如果你安装了<code class="highlighter-rouge">yarGem</code>, 你只需要将它指向到恶意软件, 它就会为该恶意软件生成一个签名. 如果你想捕捉一个恶意软件家族, 你最好是将规则推广到整个家族去.</p>
+
+<p>资源:</p>
+
+<ul>
+  <li><a href="https://github.com/Yara-Rules/rules">Yara-Rules/rules</a></li>
+  <li><a href="https://www.bsk-consulting.de/2015/02/16/write-simple-sound-yara-rules/">How to Write Simple but Sound Yara Rules - BSK Consulting GmbH</a></li>
+  <li><a href="">yara-resource.png</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup_al.shtml">descs/worm_w32_downadup_al.shtml</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup.shtml">https://www.f-secure.com/v-descs/worm_w32_downadup.shtml</a></li>
+  <li><a href="https://support.microsoft.com/en-us/help/962007/virus-alert-about-the-win32-conficker-worm">https://support.microsoft.com/en-us/help/962007/virus-alert-about-the-win32-conficker-worm</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup_a.shtml">https://www.f-secure.com/v-descs/worm_w32_downadup_a.shtml</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downadup_gen.shtml">https://www.f-secure.com/v-descs/worm_w32_downadup_gen.shtml</a></li>
+  <li><a href="https://www.f-secure.com/v-descs/worm_w32_downaduprun_a.shtml">https://www.f-secure.com/v-descs/worm_w32_downaduprun_a.shtml</a></li>
+</ul>
+
+<p>Yara:</p>
+
+<ul>
+  <li><a href="https://www.experts-exchange.com/questions/29042297/How-to-test-yara-rule.html">How to test yara rule?</a></li>
+  <li><a href="https://www.securityartwork.es/2013/10/11/yara-101/">https://www.securityartwork.es/2013/10/11/yara-101/</a></li>
+  <li><a href="https://stixproject.github.io/documentation/idioms/yara-test-mechanism/">https://stixproject.github.io/documentation/idioms/yara-test-mechanism/</a></li>
+  <li><a href="https://github.com/Neo23x0/yarGen">Neo23x0/yarGen</a></li>
+  <li><a href="https://github.com/radare/radare2/blob/master/doc/yara.md">radare/radare2/blob/master/doc/yara.md</a></li>
+  <li><a href="https://www.bsk-consulting.de/2015/02/16/write-simple-sound-yara-rules/">How to Write Simple but Sound Yara Rules - BSK Consulting GmbH</a></li>
+  <li><a href="https://www.bsk-consulting.de/2015/10/17/how-to-write-simple-but-sound-yara-rules-part-2/">How to Write Simple but Sound Yara Rules - Part 2 - BSK Consulting GmbH</a></li>
+  <li><a href="https://www.bsk-consulting.de/2016/04/15/how-to-write-simple-but-sound-yara-rules-part-3/">How to Write Simple but Sound Yara Rules – Part 3 - BSK Consulting GmbH</a></li>
+</ul>
+
+<p>xxd:</p>
+
+<ul>
+  <li><a href="https://www.systutorials.com/docs/linux/man/1-xxd/">https://www.systutorials.com/docs/linux/man/1-xxd</a></li>
+</ul>
+
+<p>比较命令</p>
+
+<p><code class="highlighter-rouge">awk ‘FNR==NR{a[$1];next}($1 in a){print}’ malcourse.strings zoo.conficker.strings &gt; same-strings</code></p>
+
+<p>恶意软件仓库</p>
+
+<ul>
+  <li><a href="https://github.com/Malshare/MalShare-Toolkit">Malshare/MalShare-Toolkit</a></li>
+  <li><a href="http://malshare.com/about.php">http://malshare.com/about.php</a></li>
+</ul>
+]]></content:encoded>
+    </item>
     
     <item>
       <title>模糊测试-初学者入门指南</title>
@@ -2392,396 +3322,6 @@ Eax: 0000FB5E
 <p>总体上我们解决题目用的静态方法十分有趣, 同时也让我有机会首次在CTF竞赛中使用<code class="highlighter-rouge">Angr</code>和<code class="highlighter-rouge">Capstone</code>. 一开始我使用的是<code class="highlighter-rouge">Angr 6</code>来解决该问题, 但后来因为在CTF的中途<code class="highlighter-rouge">Angr</code>更新新版本, 所以写脚本的时候用的是<code class="highlighter-rouge">Angr 7</code>. 如果我随后使用了<code class="highlighter-rouge">Unicorn</code>引擎和<code class="highlighter-rouge">Angr</code>再次解决的话我会回来更新这篇文章.</p>
 
 <p>完整的脚本代码你可以在这里找到: <a href="https://bitbucket.org/snippets/XOR_Hex/kByG75">greek_to_me_angr7.py</a></p>
-]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>使用libPeConv来解决Flareon4题目3</title>
-      <link href="http://www.vancir.com/2017/12/22/flareon4-3-libpeconv/"/>
-      <pubDate>2017-12-22T00:00:00+08:00</pubDate>
-      <author>Vancir</author>
-      <guid>http://www.vancir.com/2017/12/22/flareon4-3-libpeconv</guid>
-      <content:encoded><![CDATA[<blockquote>
-  <p>本文已发表在看雪论坛, 详情可见: <a href="https://bbs.pediy.com/thread-223494.htm">https://bbs.pediy.com/thread-223494.htm</a></p>
-</blockquote>
-
-<p>文章作者: hasherezade(@hasherezade)</p>
-
-<p>原文链接: <a href="https://hshrzd.wordpress.com/2017/11/24/import-all-the-things-solving-flareon-challenge-3-with-libpeconv/">Import all the things! Solving FlareOn4 Challenge 3 with libPeConv</a></p>
-
-<p>翻译前言: 虽然依旧是Flareon4第3题的分析,但是一道题的解决方法多种多样,这次给大家分享如何使用libPeConv来解决问题,又可以get到新姿势啦</p>
-
-<p>libPeConv: 是作者hasherezade开发的用于加载和转换PE文件的库,github仓库地址是:<a href="https://github.com/hasherezade/libpeconv">libpeconv</a></p>
-
-<p>文中分析的程序你可以点击此处下载: <a href="http://od7mpc53s.bkt.clouddn.com/greek_to_me.zip">greek_to_me.zip</a>, 解压密码: www.pediy.com</p>
-
-<h2 id="总览">总览</h2>
-<p>题目greek_to_me.exe是一个32位PE文件, 程序已经剔除了重定位信息. 我们以下就简称该程序为crackme
-<img src="https://hshrzd.files.wordpress.com/2017/11/exe_info.png?w=640" alt="fig1" /></p>
-
-<p>我们运行crackme, 只有一个空白的控制台程序, 并且没有从标准输入中读取任何数据, 所以我们可以推断程序是使用了一些其他方式来读取用户的password</p>
-
-<p>我们使用IDA静态分析, crackme结构非常简洁并没有混淆过. 我们可以在代码开头看见程序创建了一个socket并等待着输入
-socket监听着本地2222端口</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/make_socket.png" alt="fig2" /></p>
-
-<p>在建立连接后, crackme从用户输入中取前4字节读入到缓冲区中:</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/recv_4.png" alt="fig3" /></p>
-
-<p>读入4字节后, crackme开始处理输入并用来解码已加密的缓冲区数据</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/read_buf.png" alt="fig4" /></p>
-
-<p>如果校验值是合法的, 也就是说加密数据被正确解密了, 那么crackme就会进一步执行下去.</p>
-
-<p>我们可以看到, 输入中的数据只有1字节用于解码缓冲区数据, 所以我们可以轻易地穷举获得结果. 解码部分的代码也相当简单:</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">const</span> <span class="kt">size_t</span> <span class="n">encrypted_len</span> <span class="o">=</span> <span class="mh">0x79</span><span class="p">;</span>
-<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">encrypted_len</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">BYTE</span> <span class="n">val</span> <span class="o">=</span> <span class="n">encrypted_code</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
-    <span class="n">encrypted_code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">unknown_byte</span> <span class="o">^</span> <span class="n">val</span><span class="p">)</span> <span class="o">+</span> <span class="mh">0x22</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div></div>
-<p>程序唯一的难点在于校验值 - 这个函数并没有那么好复现. 然而如果我们想要暴力穷举, 我们却又需要在穷举后计算校验值.</p>
-
-<p>在我之前的解答中, 我复现了校验函数并表现良好, 但这并没有那么好玩. 我看过了一些其他的解决方式如<a href="https://www.fireeye.com/content/dam/fireeye-www/global/en/blog/threat-research/Flare-On%202017/Challenge%20%233%20solution.pdf">使用Unicorn引擎模拟执行校验函数</a>
-, 或<a href="https://blog.xorhex.com/flare-on-2017-challenge-3/">使用angr框架</a>, 或<a href="http://blog.attify.com/2017/10/10/flare-4-writeup-p1/">通过socket使用暴力穷举程序来获得原始程序</a>等等. 但是我们可以解决得更快速吗?我们来接着看…</p>
-<h2 id="使用libpeconv">使用LibPeConv</h2>
-<p>使用PeConv我们可以将原始格式的任何PE文件转换成虚拟内存格式并返回. 它也提供有一个可定制的PE加载器 - 用于加载任意PE文件到当前进程(就算它不是dll文件也没有重定位表, 这我会在之后的部分进行解释). 载入的PE文件随后可以在当前进程内运行. 我们也可以选择文件中的任意函数来使用 - 而我们只需要知道函数的RVA和API.</p>
-
-<p>在这次, 我将会使用libpeconv来加载crackme并导入校验值的计算函数. 不用复制加密缓冲区数据到我们的代码中, 我们可以直接从载入的PE文件中读取它.</p>
-
-<h2 id="收集需要的信息">收集需要的信息</h2>
-<p>让我们再一次在IDA中查看crackme. 我们需要找到恰当的偏移量并明白我们需要导入的API函数.</p>
-
-<p>首先我们计算校验值的函数起始于RVA 0x11E6处:</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/checksum_func.png" alt="fig5" /></p>
-
-<p>函数读取2个参数: 指向缓冲区的指针和缓冲区大小
-函数返回一个WORD类型数据.</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/return_word.png" alt="fig6" /></p>
-
-<p>总结一下, 我们可以定义一个如下的函数原型:</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">WORD</span> <span class="n">calc_checksum</span><span class="p">(</span><span class="n">BYTE</span> <span class="o">*</span><span class="n">decoded_buffer</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">buf_size</span><span class="p">)</span>
-</code></pre></div></div>
-<p>还有一点需要注意, 就是这个函数是可独用的并且没有调用任何的导入库函数 - 这让我们导入这个校验值函数更加轻松(我们不必加载任何导入库模块或进行重定位).</p>
-
-<p>另一个我们需要的信息就是加密的缓冲区. 缓冲区起始于RVA 0x107C并且长度为0x79(121)字节</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/enc_code.png" alt="fig7" /></p>
-
-<p>信息搜集完毕!我们开始写代码.</p>
-<h2 id="使用libpeconv解决crackme">使用libPeConv解决crackme</h2>
-<p>当前版本的<code class="highlighter-rouge">libpeconv</code>允许两种方式来载入PE文件. 使用到的函数有<code class="highlighter-rouge">load_pe_module</code>和<code class="highlighter-rouge">load_pe_executable</code>. 第2个函数<code class="highlighter-rouge">load_pe_executable</code>是一个完整的加载器, 它加载指定PE文件到当前进程的可读可写可执行(RWX)内存中, 并自动应用重定位信息和载入其他依赖. 第1个函数<code class="highlighter-rouge">load_pe_module</code>则不能载入依赖并且我们需要提供更多的控制: 我们可能会加载PE文件到一个不可执行的内存中而是否进行重定位也是可选的. 更多详细信息(或者该API的重要更新)请看: <a href="https://github.com/hasherezade/libpeconv/blob/master/libpeconv/include/peconv/pe_loader.h">https://github.com/hasherezade/libpeconv/blob/master/libpeconv/include/peconv/pe_loader.h</a></p>
-
-<p>正如我们所见, 我们想要导入的函数是独用的, 因此如果我们载入crackme的PE文件时没有加载导入表和重定位信息也不会造成什么危害(我们将在文章的下一部分看如何载入一个完整的PE文件). 我将使用到<code class="highlighter-rouge">load_pe_module</code>函数</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">BYTE</span><span class="o">*</span> <span class="n">loaded_pe</span> <span class="o">=</span> <span class="p">(</span><span class="n">BYTE</span><span class="o">*</span><span class="p">)</span><span class="n">load_pe_module</span><span class="p">(</span>
-    <span class="n">path</span><span class="p">,</span>
-    <span class="n">v_size</span><span class="p">,</span> <span class="c1">// OUT: size of the loaded module
-</span>    <span class="nb">true</span><span class="p">,</span>   <span class="c1">// executable
-</span>    <span class="nb">false</span>   <span class="c1">// without relocations
-</span><span class="p">);</span>
-</code></pre></div></div>
-<p>现在, 我们来导入函数, 首先我们来定义一个指针</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">WORD</span> <span class="p">(</span><span class="o">*</span><span class="n">calc_checksum</span><span class="p">)</span> <span class="p">(</span><span class="n">BYTE</span> <span class="o">*</span><span class="n">buffer</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">buf_size</span><span class="p">)</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-</code></pre></div></div>
-<p>计算在载入模块中该函数的绝对偏移</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ULONGLONG</span> <span class="n">offset</span> <span class="o">=</span> <span class="n">DWORD</span><span class="p">(</span><span class="mh">0x11e6</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">;</span>
-</code></pre></div></div>
-<p>然后填充指针</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">calc_checksum</span> <span class="o">=</span> <span class="p">(</span> <span class="n">WORD</span> <span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="p">(</span><span class="n">BYTE</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span> <span class="p">)</span> <span class="p">)</span> <span class="n">offset</span><span class="p">;</span>
-</code></pre></div></div>
-<p>现在我们就可以在我们的应用程序里该函数
-但在那之前, 我们可以开始暴力穷举, 我们也同样也需要填充缓冲区指针.</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">g_Buffer</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint8_t</span><span class="o">*</span><span class="p">)</span> <span class="p">(</span><span class="mh">0x107C</span> <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">);</span>
-</code></pre></div></div>
-<p>以下链接是我准备的完整穷举程序: <a href="https://gist.github.com/hasherezade/44b440675ccc065f111dd6a90ed34399#file-brutforcer_1-cpp">https://gist.github.com/hasherezade/44b440675ccc065f111dd6a90ed34399#file-brutforcer_1-cpp</a>
-并且结果表现良好. 我们得到的结果跟crackme需要的一样.</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/brutforce_1.png" alt="fig8" /></p>
-
-<p>但目前为止, 我们找到的值也只是解答过程的一部分, 并不是我们需要找到的flag. 我们从先前静态分析时可以知道, 如果给出正确值, 那么代码块就能解密并执行. 如果我们能看到解密后代码块到底是怎样的, 那岂不是很酷?</p>
-
-<p>而且这也非常容易实现. 我们的PE文件载入进了当前进程可读可写可执行内存中 - 因此我们可以轻易地将解密后的数据替换回加密块代码, 我们只需要一个简单的<code class="highlighter-rouge">memcpy</code>就能完成这个工作</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">memcpy</span><span class="p">(</span><span class="n">g_Buffer</span><span class="p">,</span> <span class="n">g_Buffer2</span><span class="p">,</span> <span class="n">g_BufferLen</span><span class="p">);</span>
-</code></pre></div></div>
-<p>随后, <code class="highlighter-rouge">libPeConv</code>可以帮助我们将PE文件转换回原始格式以便用IDA打开. 我们可以用<code class="highlighter-rouge">libPeConv</code>的<code class="highlighter-rouge">pe_virtual_to_raw</code>来完成.</p>
-
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">size_t</span> <span class="n">out_size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="n">BYTE</span><span class="o">*</span> <span class="n">unmapped_module</span> <span class="o">=</span> <span class="n">pe_virtual_to_raw</span><span class="p">(</span>
-    <span class="n">loaded_pe</span><span class="p">,</span> <span class="c1">//pointer to the module
-</span>    <span class="n">v_size</span><span class="p">,</span> <span class="c1">//virtual size
-</span>    <span class="n">module_base</span><span class="p">,</span> <span class="c1">//in this case we need here
-</span>                 <span class="c1">//the original module base, because
-</span>                 <span class="c1">//the loaded PE was not relocated
-</span>    <span class="n">out_size</span> <span class="c1">//OUT: raw size of the unmapped PE
-</span><span class="p">);</span>
-</code></pre></div></div>
-<p>并且以下是完整的解答: <a href="https://gist.github.com/hasherezade/36a4a531840cfe1fd5997bc7c5f6be4d#file-brutforcer_2-cpp">brutforcer_2.cpp</a></p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
-</span>
-<span class="cp">#include "peconv.h"
-</span>
-<span class="n">BYTE</span> <span class="o">*</span><span class="n">g_Buffer</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-<span class="k">const</span> <span class="kt">size_t</span> <span class="n">g_BufferLen</span> <span class="o">=</span> <span class="mh">0x79</span><span class="p">;</span>
-
-<span class="n">BYTE</span> <span class="n">g_Buffer2</span><span class="p">[</span><span class="n">g_BufferLen</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
-
-<span class="n">WORD</span> <span class="p">(</span><span class="o">*</span><span class="n">calc_checksum</span><span class="p">)</span> <span class="p">(</span><span class="n">BYTE</span> <span class="o">*</span><span class="n">decoded_buffer</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">buf_size</span><span class="p">)</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-
-<span class="n">bool</span> <span class="nf">test_val</span><span class="p">(</span><span class="n">BYTE</span> <span class="n">xor_val</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">g_BufferLen</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">BYTE</span> <span class="n">val</span> <span class="o">=</span> <span class="n">g_Buffer</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
-        <span class="n">g_Buffer2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">xor_val</span> <span class="o">^</span> <span class="n">val</span><span class="p">)</span> <span class="o">+</span> <span class="mh">0x22</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="n">WORD</span> <span class="n">checksum</span> <span class="o">=</span> <span class="n">calc_checksum</span><span class="p">(</span><span class="n">g_Buffer2</span><span class="p">,</span> <span class="n">g_BufferLen</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">checksum</span> <span class="o">==</span> <span class="mh">0xfb5e</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
-<span class="p">}</span>
-
-<span class="n">BYTE</span> <span class="nf">brutforce</span><span class="p">()</span>
-<span class="p">{</span>
-    <span class="n">BYTE</span> <span class="n">xor_val</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">do</span> <span class="p">{</span>
-      <span class="n">xor_val</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">test_val</span><span class="p">(</span><span class="n">xor_val</span><span class="p">));</span>
-    <span class="k">return</span> <span class="n">xor_val</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="c1">//---
-</span>
-<span class="n">bool</span> <span class="nf">dump_to_file</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">out_path</span><span class="p">,</span> <span class="n">BYTE</span><span class="o">*</span> <span class="n">buffer</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">buf_size</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="kt">FILE</span> <span class="o">*</span><span class="n">f1</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="s">"wb"</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">f1</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="n">fwrite</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">buf_size</span><span class="p">,</span> <span class="n">f1</span><span class="p">);</span>
-    <span class="n">fclose</span><span class="p">(</span><span class="n">f1</span><span class="p">);</span>
-    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
-<span class="p">}</span>
-
-<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
-<span class="p">{</span>
-<span class="cp">#ifdef _WIN64
-</span>    <span class="n">printf</span><span class="p">(</span><span class="s">"Compile the loader as 32bit!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
-    <span class="n">system</span><span class="p">(</span><span class="s">"pause"</span><span class="p">);</span>
-    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="cp">#endif
-</span>    <span class="kt">char</span> <span class="n">default_path</span><span class="p">[]</span> <span class="o">=</span> <span class="s">"greek_to_me.exe"</span><span class="p">;</span>
-    <span class="kt">char</span> <span class="o">*</span><span class="n">path</span> <span class="o">=</span> <span class="n">default_path</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
-    <span class="p">}</span>
-    <span class="kt">size_t</span> <span class="n">v_size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-
-    <span class="n">BYTE</span><span class="o">*</span> <span class="n">loaded_pe</span> <span class="o">=</span> <span class="n">peconv</span><span class="o">::</span><span class="n">load_pe_module</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> 
-                                     <span class="n">v_size</span><span class="p">,</span> 
-                                     <span class="nb">true</span><span class="p">,</span> <span class="c1">// load as executable?
-</span>                                     <span class="nb">false</span> <span class="c1">// apply relocations ?
-</span>                                    <span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">loaded_pe</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">printf</span><span class="p">(</span><span class="s">"Loading module failed!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
-        <span class="n">system</span><span class="p">(</span><span class="s">"pause"</span><span class="p">);</span>
-        <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="p">}</span>
-
-    <span class="n">g_Buffer</span> <span class="o">=</span> <span class="p">(</span><span class="n">BYTE</span><span class="o">*</span><span class="p">)</span> <span class="p">(</span><span class="mh">0x107C</span> <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">);</span>
-
-    <span class="n">ULONGLONG</span> <span class="n">func_offset</span> <span class="o">=</span> <span class="mh">0x11e6</span> <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">;</span>
-    <span class="n">calc_checksum</span> <span class="o">=</span>  <span class="p">(</span> <span class="n">WORD</span> <span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="p">(</span><span class="n">BYTE</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span> <span class="p">)</span> <span class="p">)</span> <span class="n">func_offset</span><span class="p">;</span>
-
-    <span class="n">BYTE</span> <span class="n">found</span> <span class="o">=</span> <span class="n">brutforce</span><span class="p">();</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">"Found: %x</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">found</span><span class="p">);</span>
-
-    <span class="n">memcpy</span><span class="p">(</span><span class="n">g_Buffer</span><span class="p">,</span> <span class="n">g_Buffer2</span><span class="p">,</span> <span class="n">g_BufferLen</span><span class="p">);</span>
-
-    <span class="kt">size_t</span> <span class="n">out_size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    
-    <span class="cm">/*in this case we need to use the original module base, because 
-    * the loaded PE was not relocated */</span>
-    <span class="n">ULONGLONG</span> <span class="n">module_base</span> <span class="o">=</span> <span class="n">peconv</span><span class="o">::</span><span class="n">get_image_base</span><span class="p">(</span><span class="n">loaded_pe</span><span class="p">);</span> 
-    
-    <span class="n">BYTE</span><span class="o">*</span> <span class="n">unmapped_module</span> <span class="o">=</span> <span class="n">peconv</span><span class="o">::</span><span class="n">pe_virtual_to_raw</span><span class="p">(</span><span class="n">loaded_pe</span><span class="p">,</span> 
-                                              <span class="n">v_size</span><span class="p">,</span> 
-                                              <span class="n">module_base</span><span class="p">,</span> <span class="c1">//the original module base
-</span>                                              <span class="n">out_size</span> <span class="c1">// OUT: size of the unmapped (raw) PE
-</span>                                             <span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">unmapped_module</span><span class="p">)</span> <span class="p">{</span>
-        <span class="kt">char</span> <span class="n">out_path</span><span class="p">[]</span> <span class="o">=</span> <span class="s">"modified_pe.exe"</span><span class="p">;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">dump_to_file</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="n">unmapped_module</span><span class="p">,</span> <span class="n">out_size</span><span class="p">))</span> <span class="p">{</span>
-            <span class="n">printf</span><span class="p">(</span><span class="s">"Module dumped to: %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">out_path</span><span class="p">);</span>
-        <span class="p">}</span>
-        <span class="n">peconv</span><span class="o">::</span><span class="n">free_pe_buffer</span><span class="p">(</span><span class="n">unmapped_module</span><span class="p">,</span> <span class="n">v_size</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="n">peconv</span><span class="o">::</span><span class="n">free_pe_buffer</span><span class="p">(</span><span class="n">loaded_pe</span><span class="p">,</span> <span class="n">v_size</span><span class="p">);</span>
-    
-    <span class="n">system</span><span class="p">(</span><span class="s">"pause"</span><span class="p">);</span>
-    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div></div>
-<p>与初始的文件相比, 我们可以看到dump出来的可执行文件的缓冲区已经覆写过了.</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/filled_buf.png?w=640" alt="fig9" /></p>
-
-<p>所以我们在IDA里看下修改的可执行文件</p>
-
-<p><img src="https://hshrzd.files.wordpress.com/2017/11/flag_revealed.png" alt="fig10" /></p>
-
-<p>搞定!在<code class="highlighter-rouge">0x000F107C</code>处显示出我们的flag: <code class="highlighter-rouge">et_tu_brute_force@flare-on.com</code></p>
-
-<h2 id="福利---载入和运行剔除了重定位信息的pe文件">福利 - 载入和运行剔除了重定位信息的PE文件</h2>
-<p>OK, 你可能会说, 这很简单呀, 导入的函数是独立的, 所以我们可以从原来文件中抽出来, 并不需要使用任何加载器. 但是如果函数调用了一些其他的模块内的其他函数或是导入函数呢? 我们之前的方法还能生效吗? 不止如此, 剔除掉重定位信息的PE文件又能行吗?</p>
-
-<p>为了回答这些问题, 我准备了其他的测试用例. 与之前载一个函数相反, 我将会在穷举程序中载入并执行完整的crackme文件.</p>
-
-<p>首先我们将会修改一些东西. 这次不使用<code class="highlighter-rouge">load_pe_module</code>, 我使用<code class="highlighter-rouge">load_pe_executable</code>来加载完整的可执行文件和依赖.</p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">BYTE</span><span class="o">*</span> <span class="n">loaded_pe</span> <span class="o">=</span> <span class="p">(</span><span class="n">BYTE</span><span class="o">*</span><span class="p">)</span><span class="n">load_pe_executable</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">v_size</span><span class="p">);</span>
-</code></pre></div></div>
-
-<p>这个函数将自动地识别出这个PE文件没有重定位信息, 并且载入到初始模块基址. 注意, 分配的指定基址处的内存可能不总会生效, 因此有时需要运行多次使得程序正确地执行. 你也必须确定加载器的模块基址跟payload需要的模块基址不相冲突(如果加载器的基址是随机的话就很好).</p>
-
-<p>一旦PE文件加载完毕, 我们就需要获取它的入口地址, 并且随后我们就可以像其他函数一样调用它:</p>
-
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Deploy the payload:
-// read the Entry Point from the headers:
-</span><span class="n">ULONGLONG</span> <span class="n">ep_va</span> <span class="o">=</span> <span class="n">get_entry_point_rva</span><span class="p">(</span><span class="n">loaded_pe</span><span class="p">)</span>
-    <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">;</span>
- 
-<span class="c1">//make pointer to the entry function:
-</span><span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">loaded_pe_entry</span><span class="p">)(</span><span class="kt">void</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="p">)(</span><span class="kt">void</span><span class="p">))</span> <span class="n">ep_va</span><span class="p">;</span>
- 
-<span class="c1">//call the loaded PE's ep:
-</span><span class="kt">int</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">loaded_pe_entry</span><span class="p">();</span>
-</code></pre></div></div>
-
-<p>但还要注意这与payload的具体实现细节有关, 一旦你转向执行入口点代码, 它可能在完成工作后直接退出而不会返回到你的代码中.</p>
-
-<p>我打算修改穷举程序的代码, 使得在找到正确值之后crackme会继续运行. 以下是代码的完整版本: <a href="https://gist.github.com/hasherezade/9d5186b27c730d01849ac1787b3d699b#file-brutforcer_3-cpp">brutforcer_3.cpp</a></p>
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
-</span>
-<span class="cp">#include "peconv.h"
-</span>
-<span class="n">BYTE</span> <span class="o">*</span><span class="n">g_Buffer</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-<span class="k">const</span> <span class="kt">size_t</span> <span class="n">g_BufferLen</span> <span class="o">=</span> <span class="mh">0x79</span><span class="p">;</span>
-
-<span class="n">BYTE</span> <span class="n">g_Buffer2</span><span class="p">[</span><span class="n">g_BufferLen</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
-
-<span class="n">WORD</span> <span class="p">(</span><span class="o">*</span><span class="n">calc_checksum</span><span class="p">)</span> <span class="p">(</span><span class="n">BYTE</span> <span class="o">*</span><span class="n">decoded_buffer</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">buf_size</span><span class="p">)</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-
-<span class="n">bool</span> <span class="nf">test_val</span><span class="p">(</span><span class="n">BYTE</span> <span class="n">xor_val</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">g_BufferLen</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">BYTE</span> <span class="n">val</span> <span class="o">=</span> <span class="n">g_Buffer</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
-        <span class="n">g_Buffer2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">xor_val</span> <span class="o">^</span> <span class="n">val</span><span class="p">)</span> <span class="o">+</span> <span class="mh">0x22</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="n">WORD</span> <span class="n">checksum</span> <span class="o">=</span> <span class="n">calc_checksum</span><span class="p">(</span><span class="n">g_Buffer2</span><span class="p">,</span> <span class="n">g_BufferLen</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">checksum</span> <span class="o">==</span> <span class="mh">0xfb5e</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
-<span class="p">}</span>
-
-<span class="n">BYTE</span> <span class="nf">brutforce</span><span class="p">()</span>
-<span class="p">{</span>
-    <span class="n">BYTE</span> <span class="n">xor_val</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">do</span> <span class="p">{</span>
-      <span class="n">xor_val</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">test_val</span><span class="p">(</span><span class="n">xor_val</span><span class="p">));</span>
-    <span class="k">return</span> <span class="n">xor_val</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="c1">//---
-</span>
-<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
-<span class="p">{</span>
-<span class="cp">#ifdef _WIN64
-</span>    <span class="n">printf</span><span class="p">(</span><span class="s">"Compile the loader as 32bit!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
-    <span class="n">system</span><span class="p">(</span><span class="s">"pause"</span><span class="p">);</span>
-    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="cp">#endif
-</span>    <span class="kt">char</span> <span class="n">default_path</span><span class="p">[]</span> <span class="o">=</span> <span class="s">"greek_to_me.exe"</span><span class="p">;</span>
-    <span class="kt">char</span> <span class="o">*</span><span class="n">path</span> <span class="o">=</span> <span class="n">default_path</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
-    <span class="p">}</span>
-    <span class="kt">size_t</span> <span class="n">v_size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-
-    <span class="n">BYTE</span><span class="o">*</span> <span class="n">loaded_pe</span> <span class="o">=</span> <span class="n">peconv</span><span class="o">::</span><span class="n">load_pe_executable</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">v_size</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">loaded_pe</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">printf</span><span class="p">(</span><span class="s">"Loading module failed!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
-        <span class="n">system</span><span class="p">(</span><span class="s">"pause"</span><span class="p">);</span>
-        <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="p">}</span>
-
-    <span class="n">g_Buffer</span> <span class="o">=</span> <span class="p">(</span><span class="n">BYTE</span><span class="o">*</span><span class="p">)</span> <span class="p">(</span><span class="mh">0x107C</span> <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">);</span>
-
-    <span class="n">ULONGLONG</span> <span class="n">func_offset</span> <span class="o">=</span> <span class="mh">0x11e6</span> <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">;</span>
-    <span class="n">calc_checksum</span> <span class="o">=</span>  <span class="p">(</span> <span class="n">WORD</span> <span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="p">(</span><span class="n">BYTE</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span> <span class="p">)</span> <span class="p">)</span> <span class="n">func_offset</span><span class="p">;</span>
-
-    <span class="n">BYTE</span> <span class="n">found</span> <span class="o">=</span> <span class="n">brutforce</span><span class="p">();</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">"Found: %x</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">found</span><span class="p">);</span>
-
-    <span class="c1">// Deploy the payload!
-</span>    <span class="c1">// read the Entry Point from the headers:
-</span>    <span class="n">ULONGLONG</span> <span class="n">ep_va</span> <span class="o">=</span> <span class="n">peconv</span><span class="o">::</span><span class="n">get_entry_point_rva</span><span class="p">(</span><span class="n">loaded_pe</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">ULONGLONG</span><span class="p">)</span> <span class="n">loaded_pe</span><span class="p">;</span>
-
-    <span class="c1">//make pointer to the entry function:
-</span>    <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">loaded_pe_entry</span><span class="p">)(</span><span class="kt">void</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="p">)(</span><span class="kt">void</span><span class="p">))</span> <span class="n">ep_va</span><span class="p">;</span>
-
-    <span class="c1">//call the loaded PE's ep:
-</span>    <span class="n">printf</span><span class="p">(</span><span class="s">"Calling the Entry Point of the loaded module:</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
-    <span class="kt">int</span> <span class="n">res</span> <span class="o">=</span> <span class="n">loaded_pe_entry</span><span class="p">();</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">"Finished: %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">res</span><span class="p">);</span>
-    <span class="n">system</span><span class="p">(</span><span class="s">"pause"</span><span class="p">);</span>
-    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div></div>
-<p>为了确保一切运行正常(尽管运行payload确实建立了socket并给出跟之前载入独立函数时相同的回应), 我写了一个简短的python脚本来交流和显示回应结果: <a href="https://gist.github.com/hasherezade/328210a57464360e23e125929b62b301#file-test-py">test.py</a></p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">socket</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">argparse</span>
-
-<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s">"Send to the Crackme"</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">'--key'</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">"key"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s">"0xa2"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">"The value to be sent"</span><span class="p">)</span>
-    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
-    <span class="n">my_key</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span> <span class="o">%</span> <span class="mi">255</span>
-    <span class="k">print</span> <span class="s">'[+] Checking the key: '</span> <span class="o">+</span> <span class="nb">hex</span><span class="p">(</span><span class="n">my_key</span><span class="p">)</span>
-    <span class="n">key</span> <span class="o">=</span>  <span class="nb">chr</span><span class="p">(</span><span class="n">my_key</span><span class="p">)</span> <span class="o">+</span> <span class="s">'012'</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
-        <span class="n">s</span><span class="o">.</span><span class="n">connect</span><span class="p">((</span><span class="s">'127.0.0.1'</span><span class="p">,</span> <span class="mi">2222</span><span class="p">))</span>
-        <span class="n">s</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">512</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="k">print</span> <span class="s">"[+] Response: "</span> <span class="o">+</span> <span class="n">result</span>
-        <span class="n">s</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span><span class="p">:</span>
-        <span class="k">print</span> <span class="s">"Could not connect to the socket. Is the crackme running?"</span>
-    
-<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">"__main__"</span><span class="p">:</span>
-    <span class="n">sys</span><span class="o">.</span><span class="nb">exit</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
-</code></pre></div></div>
-
-<p>现在, 你可以在YouTube观看整个过程的操作: <a href="https://www.youtube.com/watch?v=x3T3qFEDkF0">https://www.youtube.com/watch?v=x3T3qFEDkF0</a></p>
-
-<p>以上就是我今天所准备的内容, 我希望大家都能有所收获! 该库现在正处于快速开发阶段, 所以许多东西会进行重构并优化, 敬请期待.</p>
-
-<h2 id="附录">附录</h2>
-<p>其他解决该问题的方法如下:</p>
-<ul>
-  <li><a href="https://www.fireeye.com/content/dam/fireeye-www/global/en/blog/threat-research/Flare-On%202017/Challenge%20%233%20solution.pdf">emulating the checksum function by the Unicorn engine</a></li>
-  <li><a href="https://blog.xorhex.com/flare-on-2017-challenge-3/">using angr framework</a></li>
-  <li><a href="https://parsiya.net/blog/2017-11-15-winappdbg---part-4---bruteforcing-flareon-2017---challenge-3/">using WinAppDbg</a></li>
-  <li><a href="http://blog.attify.com/2017/10/10/flare-4-writeup-p1/">a brutforcer that talks to the original program via socket</a></li>
-</ul>
-
 ]]></content:encoded>
     </item>
     

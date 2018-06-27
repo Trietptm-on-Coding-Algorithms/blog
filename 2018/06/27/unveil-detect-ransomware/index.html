@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN" lang="zh-CN">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="author" content="Vancir" />
+  <title>UNVEIL 一种大规模检测勒索软件的自动化方法</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link href="/feed/" rel="alternate" title="Vancir" type="application/atom+xml" />
+  <link rel="stylesheet" href="/media/css/style.css" />
+  <link rel="stylesheet" href="/media/css/highlight.css" />
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/media/js/outliner.js"></script>
+</head>
+<!--  <body> 
+-->
+<script type="text/javascript">
+  function setTimeSpan() {
+    var date = new Date();
+    timeSpan.innerText = date.format('yyyy-MM-dd hh:mm:ss');
+  }
+
+  Date.prototype.format = function (format) {
+    var o =
+      {
+        "M+": this.getMonth() + 1, //month
+        "d+": this.getDate(),    //day
+        "h+": this.getHours(),   //hour
+        "m+": this.getMinutes(), //minute
+        "s+": this.getSeconds(), //second
+        "q+": Math.floor((this.getMonth() + 3) / 3),  //quarter
+        "S": this.getMilliseconds() //millisecond
+      }
+    if (/(y+)/.test(format))
+      format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(format))
+        format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    return format;
+  }
+</script>
+
+<body onLoad="setInterval(setTimeSpan,1000);">
+  <div id="container">
+    <div id="main" role="main">
+      <header>
+        <h1>UNVEIL 一种大规模检测勒索软件的自动化方法</h1>
+      </header>
+      <nav id="real_nav">
+        <span>
+          <a title="home" class="" href="/">home</a>
+        </span>
+        <span>
+          <a title="categories" class="" href="/categories/">categories</a>
+        </span>
+        <span>
+          <a title="tags" class="" href="/tags/">tags</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/repo/">repo</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/act/">act</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/books/">books</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/musics/">musics</a>
+        </span>
+        <span>
+          <a title="tools" class="" href="/movies/">movies</a>
+        </span>
+        <span>
+          <a title="links" class="" href="/friends/">friends</a>
+        </span>
+        <span>
+          <a title="about" class="" href="/about/">about</a>
+        </span>
+        <span>
+          <a title="feed" class="" href="/feed">subscribe</a>
+        </span>
+      </nav>
+      <article class="content">
+        <section class="meta">
+<span class="time">
+  <time datetime="2018-06-27">2018-06-27</time>
+</span>
+
+ | 
+<span class="categories">
+  categories
+  
+  <a href="/categories/#paper" title="paper">paper</a>&nbsp;
+  
+  <a href="/categories/#translations" title="translations">translations</a>&nbsp;
+  
+</span>
+
+
+ | 
+<span class="tags">
+  tags
+  
+  <a href="/tags/#malware" title="malware">malware</a>&nbsp;
+  
+</span>
+
+</section>
+<section class="post">
+<h2 id="摘要">摘要</h2>
+
+<p>尽管勒索软件早已不是什么新奇的概念(这种攻击甚至可以追溯到20世纪80年代), 但这种类型的恶意软件最近开始复苏变得流行起来. 事实上, 近几年以来已经报道了数起备受瞩目的勒索软件攻击, 例如对索尼的大规模攻击导致了索尼不得不推迟发布电影«刺杀金正恩».</p>
+
+<p>勒索软件通常会锁定受害者桌面, 使用户无法访问系统, 或是加密, 覆写, 删除用户文件, 以此来勒索钱财. 然而, 虽然现今已经提出了许多通用的恶意软件检测系统, 但没有一个检测系统有尝试专门解决勒索软件的检测问题.</p>
+
+<p>在本论文中, 我们提出了一种名为UNVEIL的新型动态分析系统, 专门用于检测勒索软件. 而分析的关键依据就是, 勒索软件要想成功实行攻击, 就必定会去篡改用户的文件或桌面. UNVEIL会生成一个伪造的用户环境, 并检测勒索软件与用户数据的交互时间, 同时还会跟踪系统桌面上发生的可能是由勒索软件行为造成的变化. 我们的评估结果显示, UNVEIL 显著地提高了现有技术水平, 并能够检测出以往反病毒公司未能检测出的在野勒索软件.</p>
+
+<h2 id="绪论">绪论</h2>
+
+<p>恶意软件目前仍是互联网上最重要的安全威胁之一. 近期, 一种称为勒索软件的特定恶意软件在网络犯罪中变得非常流行. 尽管勒索软件这个概念并不新奇 - 这种攻击早在20世纪80年代末就已经发生过 - 但勒索软件的成功也使得勒索软件近几年衍生出了越来越多的家系[7,20,21,44,46]. 例如, CryptoWall 3.0作为一个高利润的勒索软件家族在世界各地成为头条新闻, 估计造成了3.25亿美元的损失[45], 又如索尼遭受勒索软件攻击事件[27]引发了媒体的大量关注, 美国官方甚至宣称是朝鲜发起了这次攻击.</p>
+
+<p>勒索软件有多种方式运作, 简单的可以锁定受感染计算机的桌面, 复杂一些可以对受害者所有文件进行加密. 与传统恶意软件相比, 勒索软件表现出了一定的行为差异. 例如, 传统恶意软件强调隐蔽性, 以便于在不受怀疑的情况下收集银行证书信息或用户按键记录. 而与之相反, 勒索软件完全不在意隐蔽性, 它攻击的先手就是公开地告知用户你已经被感染了.</p>
+
+<p>现今, 基于行为的恶意软件检测一个重要推动因素就是动态分析技术. 这些系统在一个受控环境中运行捕获的恶意软件样本并记录其行为(例如系统调用, API调用和网络流量). 不幸的是, 专注于行为的恶意软件检测系统(例如, 用于键盘记录的可疑操作系统功能)可能无法检测勒索软件, 因为这类恶意代码和那些使用加密或压缩的良性应用程序活动有相似之处. 此外, 这些检测系统目前还不适合检测勒索软件的具体行为, 从反病毒扫描器对勒索软件家族的错误分类就可以证明这一点[10,39].</p>
+
+<p>在本论文中, 我们提出了一种新的动态分析系统, 旨在分析和检测勒索软件攻击并对其行为进行建模. 在我们的方法中, 系统会创建一个伪造的执行环境, 并监控勒索软件与环境的交互. 密切地监控勒索软件与文件系统的进程交互可以使检测系统精确地表征加密勒索软件的行为.</p>
+
+<p>与此同时, 系统会跟踪程序对计算机桌面的可疑修改, 以表明这是勒索软件样的行为. 我们关键依据就在于勒索软件要想成功, 就必须访问和篡改受害者的文件或桌面. 我们的自动化方法简称为UNVEIL, 该方法允许系统大规模检测许多恶意软件样本, 并可靠地检测并标记那些有着类似勒索软件行为的恶意软件样本. 此外, 该检测系统还能提供对勒索软件运行方式的见解, 并自动区分不同类别的勒索软件.</p>
+
+<p>我们在Windows流行的开源恶意软件分析框架–Cuckoo沙盒[13]上实现了UNVEIL的原型. 系统使用定制的Windows内核驱动来实现, 该驱动可以为文件系统提供监视功能. 此外, 我们还添加了在沙盒外运行的组件, 以监视目标计算机系统的用户界面.</p>
+
+<p>我们在长期的研究中分析了近期在野的148,233个恶意软件样本. 我们的大规模实验结果表明, UNVEIL能够在真实世界的实时数据反馈中正确检测多个家族中的13,637个勒索软件样本. 我们的评估结果还表明, 目前的恶意软件分析系统可能还没有一个准确的行为模型来检测不同类别的勒索软件攻击。</p>
+
+<p>例如, 系统能够正确检测出7,572个还未被传统AV检测出的勒索软件样本, 这些样本都属于现代文件锁定类型的勒索软件家族.  UNVEIL还能够发现一种尚未被任何安全公司报告过的新型勒索软件. 这个勒索软件在一些著名的反恶意软件公司提供的现代沙盒中也没有显示出任何恶意行为，而在UNVEIL分析时则显示出了大量的文件加密活动。</p>
+
+<p>从我们方法的高检测率可以表明, UNVEIL可以填充当前恶意软件分析系统快速识别新型在野勒索软件的空白. 只需在分析环境中附加到文件系统驱动程序, UNVEIL就可以轻松地部署在任何恶意软件分析系统上.</p>
+
+<p>总而言之, 本论文做出了如下贡献:</p>
+
+<ul>
+  <li>
+    <p>我们提供了一种新型技术用于检测针对受害者计算机上存储文件进行锁定的勒索软件(也称为文件锁定器). 该检测技术基于监控系统范围的文件系统访问信息, 并结合部署的仿真用户环境来判定勒索软件。</p>
+  </li>
+  <li>我们进行了大规模检测, 评估结果表明我们的方法确实可以有效地检测勒索软件</li>
+  <li>我们自动检测了近期的148,223个恶意软件样本数据集并验证其中确有13,637个勒索软件. 另外, 我们还发现了一个尚未被报告的勒索软件样本. 评估结果表明, 我们的技术在实践过程中表现良好(达到了96.3%的真正率[TP]和0的假正率[FPs]), 并可用于自动识别提交给分析检测系统的勒索软件样本.</li>
+</ul>
+
+<p>论文的其他部分结构如下. 在第2节中, 我们会简要介绍背景信息并解释不同类别的勒索软件攻击. 在第3节中, 我们描述了UNVEIL的架构并解释我们用于检测多类勒索软件攻击的方法. 在第4节中, 我们提供了有关动态分析环境的更多细节. 第5节会展示我们的评估结果. 第6节将会讨论该方法的局限性. 第7节这介绍相关工作, 最后在第8节总结本篇论文.</p>
+
+</section>
+<section align="right">
+<br/>
+<span>
+	<a  href="/2018/04/14/creat-yara-rules/" class="pageNav"  >Previous</a>
+	&nbsp;&nbsp;&nbsp;
+	<a   class="pageNavInvalid"  >Next</a>
+</span>
+</section>
+
+<script type="text/javascript">
+$(function(){
+  $(document).keydown(function(e) {
+    var url = false;
+        if (e.which == 37 || e.which == 74) {  // Left arrow and J
+            
+        url = 'http://www.vancir.com/2018/04/14/creat-yara-rules/';
+        
+        }
+        else if (e.which == 39 || e.which == 75) {  // Right arrow and K
+            
+        }
+        if (url) {
+            window.location = url;
+        }
+  });
+})
+</script>
+
+      </article>
+      <a style="position:fixed;bottom:5px;right:5px;" href="#" title="Back to Top">
+        <img src="/assets/btt.png" />
+      </a>
+    </div>
+    <footer>
+      <p>
+        <small>
+          Powered by
+          <a href="http://jekyllrb.com" target="_blank">Jekyll</a> @
+          <a href="https://github.com/Vancir/vancir.github.io" target="_blank" title="project homepage">github</a> | Copyright 2017 - 2018 by
+          <a href="/about/">Vancir</a> |
+          <span class="label label-info" id="timeSpan"></span>
+        </small>
+      </p>
+    </footer>
+  </div>
+</body>
+
+</html>
